@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suivi des nouveaux agents</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <a class="back-link" href="index.html" aria-label="Retour à l'accueil">←</a>
+    <div>
+      <p class="eyebrow">Espace responsables</p>
+      <h1>Suivi des nouveaux agents</h1>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="toolbar">
+      <label class="search-box">
+        <span>Rechercher un agent</span>
+        <input id="agent-search" type="search" placeholder="Nom ou prénom">
+      </label>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Dossiers</p>
+          <h2>Agents suivis</h2>
+        </div>
+        <span id="agent-count" class="count-badge">0</span>
+      </div>
+
+      <div id="agent-list" class="agent-list">
+        <div class="empty-state">
+          <h3>Aucun agent enregistré</h3>
+          <p>Les dossiers apparaîtront ici lorsque le site sera relié au fichier de stockage.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="agent-file" class="panel agent-file" hidden>
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Dossier individuel</p>
+          <h2 id="agent-name">Agent</h2>
+        </div>
+        <button id="close-file" class="secondary-button" type="button">Fermer</button>
+      </div>
+
+      <div class="followup-section">
+        <h3>Informations générales</h3>
+        <div class="information-grid">
+          <label>Service<input type="text" data-field="service"></label>
+          <label>Date d’arrivée<input type="date" data-field="arrivalDate"></label>
+          <label>Chef référent<input type="text" data-field="manager"></label>
+          <label>Accompagnateur principal<input type="text" data-field="mentor"></label>
+        </div>
+      </div>
+
+      <div id="followup-sections"></div>
+
+      <div class="save-bar">
+        <p id="save-status" aria-live="polite"></p>
+        <button id="save-file" class="primary-button" type="button">Enregistrer</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
