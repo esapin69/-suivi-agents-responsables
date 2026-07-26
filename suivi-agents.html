@@ -1,73 +1,12 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Suivi des nouveaux agents</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <header class="app-header">
-    <a class="back-link" href="index.html" aria-label="Retour à l'accueil">←</a>
-    <div>
-      <p class="eyebrow">Espace responsables</p>
-      <h1>Suivi des nouveaux agents</h1>
-    </div>
-  </header>
-
-  <main class="app-shell">
-    <section class="toolbar">
-      <label class="search-box">
-        <span>Rechercher un agent</span>
-        <input id="agent-search" type="search" placeholder="Nom ou prénom">
-      </label>
-    </section>
-
-    <section class="panel">
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">Dossiers</p>
-          <h2>Agents suivis</h2>
-        </div>
-        <span id="agent-count" class="count-badge">0</span>
-      </div>
-
-      <div id="agent-list" class="agent-list">
-        <div class="empty-state">
-          <h3>Aucun agent enregistré</h3>
-          <p>Les dossiers apparaîtront ici lorsque le site sera relié au fichier de stockage.</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="agent-file" class="panel agent-file" hidden>
-      <div class="panel-heading">
-        <div>
-          <p class="eyebrow">Dossier individuel</p>
-          <h2 id="agent-name">Agent</h2>
-        </div>
-        <button id="close-file" class="secondary-button" type="button">Fermer</button>
-      </div>
-
-      <div class="followup-section">
-        <h3>Informations générales</h3>
-        <div class="information-grid">
-          <label>Service<input type="text" data-field="service"></label>
-          <label>Date d’arrivée<input type="date" data-field="arrivalDate"></label>
-          <label>Chef référent<input type="text" data-field="manager"></label>
-          <label>Accompagnateur principal<input type="text" data-field="mentor"></label>
-        </div>
-      </div>
-
-      <div id="followup-sections"></div>
-
-      <div class="save-bar">
-        <p id="save-status" aria-live="polite"></p>
-        <button id="save-file" class="primary-button" type="button">Enregistrer</button>
-      </div>
-    </section>
-  </main>
-
-  <script src="app.js"></script>
-</body>
-</html>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Suivi des nouveaux agents</title><link rel="stylesheet" href="style.css"></head><body><header class="app-header"><a class="back-link" href="index.html">←</a><div><p class="eyebrow">Espace responsables</p><h1>Suivi des nouveaux agents</h1></div></header><main class="app-shell">
+<section class="toolbar"><div class="toolbar-row"><label class="search-box"><span>Rechercher un agent</span><input id="agent-search" type="search" placeholder="Nom, prénom ou matricule"></label><button id="new-agent" class="primary-button" type="button">Nouvel agent</button></div></section>
+<section class="panel"><div class="panel-heading"><div><p class="eyebrow">Dossiers</p><h2>Agents suivis</h2></div><span id="agent-count" class="count-badge">0</span></div><div id="agent-list" class="agent-list"><div class="empty-state"><h3>Aucun agent enregistré</h3><p>Créez le premier dossier avec le bouton « Nouvel agent ».</p></div></div></section>
+<section id="agent-file" class="panel agent-file" hidden><div class="panel-heading"><div><p class="eyebrow">Dossier individuel</p><h2 id="agent-name">Agent</h2><p id="agent-meta" class="muted"></p></div><button id="close-file" class="secondary-button">Fermer</button></div>
+<div class="tabs"><button class="tab active" data-tab="general">Informations</button><button class="tab" data-tab="agent">Réponses de l’agent</button><button class="tab" data-tab="evaluation">Évaluation du chef</button><button class="tab" data-tab="actions">Actions et bilan</button></div>
+<div class="tab-panel active" data-panel="general"><div class="information-grid">
+<label>Nom<input data-field="nom"></label><label>Prénom<input data-field="prenom"></label><label>Matricule<input data-field="matricule"></label><label>Date d’arrivée<input type="date" data-field="dateArrivee"></label><label>Équipe<select data-field="equipe"><option></option><option>Jour</option><option>Nuit</option></select></label><label>Type de contrat<input data-field="contrat"></label><label>Chef référent<input data-field="chefReferent"></label><label>Accompagnateur principal<input data-field="accompagnateur"></label><label>Durée de doublure prévue<input type="number" data-field="dureeDoublure"></label><label>Badge remis<select data-field="badgeRemis"><option>Non</option><option>Oui</option></select></label><label>Téléphone remis<select data-field="telephoneRemis"><option>Non</option><option>Oui</option></select></label><label>Étape actuelle<select data-field="etape"><option>Premier jour</option><option>Première semaine</option><option>Fin de doublure</option><option>1 mois</option><option>3 mois</option><option>6 mois</option></select></label></div></div>
+<div class="tab-panel" data-panel="agent"><div id="agent-answers" class="answer-list"></div></div>
+<div class="tab-panel" data-panel="evaluation"><div id="competence-grid" class="competence-grid"></div><label class="response-field">Points forts<textarea data-field="pointsForts"></textarea></label><label class="response-field">Difficultés observées<textarea data-field="difficultes"></textarea></label><label class="response-field">Observation générale<textarea data-field="observationGenerale"></textarea></label></div>
+<div class="tab-panel" data-panel="actions"><div class="information-grid"><label>Action à prévoir<textarea data-field="action"></textarea></label><label>Responsable de l’action<input data-field="responsableAction"></label><label>Échéance<input type="date" data-field="echeance"></label><label>Prochain bilan<input type="date" data-field="prochainBilan"></label><label>Décision / suite<select data-field="decision"><option></option><option>Poursuite de l’accompagnement</option><option>Autonomie validée</option><option>Point de vigilance</option><option>Réévaluation nécessaire</option></select></label><label>Commentaire de bilan<textarea data-field="bilan"></textarea></label></div></div>
+<div class="save-bar"><p id="save-status"></p><button id="save-file" class="primary-button">Enregistrer</button></div></section></main>
+<dialog id="new-agent-dialog"><form method="dialog" id="new-agent-form"><div class="dialog-head"><h2>Nouvel agent</h2><button value="cancel" class="icon-button">×</button></div><div class="information-grid"><label>Nom<input name="nom" required></label><label>Prénom<input name="prenom" required></label><label>Matricule<input name="matricule"></label><label>Date d’arrivée<input type="date" name="dateArrivee" required></label><label>Équipe<select name="equipe"><option></option><option>Jour</option><option>Nuit</option></select></label><label>Chef référent<input name="chefReferent"></label></div><div id="duplicate-warning" class="warning" hidden></div><div class="dialog-actions"><button value="cancel" class="secondary-button">Annuler</button><button id="create-agent" value="default" class="primary-button">Créer le dossier</button></div></form></dialog><script src="app.js"></script></body></html>

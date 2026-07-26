@@ -1,116 +1,18 @@
-const sections = [
-  "Accueil et intégration",
-  "Connaissance des bâtiments",
-  "Organisation du travail",
-  "Réalisation des transports",
-  "Prise en charge des patients",
-  "Identitovigilance et sécurité",
-  "Communication",
-  "Autonomie",
-  "Points forts",
-  "Difficultés rencontrées",
-  "Actions à prévoir",
-  "Observations complémentaires"
-];
-
-const agents = [];
-
-const searchInput = document.querySelector("#agent-search");
-const agentList = document.querySelector("#agent-list");
-const agentCount = document.querySelector("#agent-count");
-const agentFile = document.querySelector("#agent-file");
-const agentName = document.querySelector("#agent-name");
-const sectionsContainer = document.querySelector("#followup-sections");
-const closeFileButton = document.querySelector("#close-file");
-const saveButton = document.querySelector("#save-file");
-const saveStatus = document.querySelector("#save-status");
-
-function renderSections(agent = {}) {
-  sectionsContainer.innerHTML = sections.map((title, index) => {
-    const key = `section-${index}`;
-    const agentAnswer = agent.agentAnswers?.[key] || "Aucune réponse transmise pour cette rubrique.";
-    const managerAnswer = agent.managerAnswers?.[key] || "";
-
-    return `
-      <section class="followup-section">
-        <h3>${title}</h3>
-        <div class="agent-response">
-          <strong>Ce que l’agent a répondu</strong>
-          <p>${escapeHtml(agentAnswer)}</p>
-        </div>
-        <label class="response-field">
-          Observation du chef
-          <textarea data-section="${key}" placeholder="Écrire une observation…">${escapeHtml(managerAnswer)}</textarea>
-        </label>
-      </section>
-    `;
-  }).join("");
-}
-
-function renderAgents(filter = "") {
-  const normalizedFilter = filter.trim().toLowerCase();
-  const filtered = agents.filter(agent =>
-    `${agent.firstName} ${agent.lastName}`.toLowerCase().includes(normalizedFilter)
-  );
-
-  agentCount.textContent = String(filtered.length);
-
-  if (!filtered.length) {
-    agentList.innerHTML = `
-      <div class="empty-state">
-        <h3>Aucun agent enregistré</h3>
-        <p>Les dossiers apparaîtront ici lorsque le site sera relié au fichier de stockage.</p>
-      </div>
-    `;
-    return;
-  }
-
-  agentList.innerHTML = filtered.map(agent => `
-    <button class="agent-card" type="button" data-agent-id="${agent.id}">
-      <div>
-        <strong>${escapeHtml(agent.firstName)} ${escapeHtml(agent.lastName)}</strong>
-        <span>${escapeHtml(agent.status || "Suivi en cours")}</span>
-      </div>
-      <span aria-hidden="true">›</span>
-    </button>
-  `).join("");
-
-  document.querySelectorAll("[data-agent-id]").forEach(button => {
-    button.addEventListener("click", () => openAgent(button.dataset.agentId));
-  });
-}
-
-function openAgent(id) {
-  const agent = agents.find(item => item.id === id);
-  if (!agent) return;
-
-  agentName.textContent = `${agent.firstName} ${agent.lastName}`;
-  renderSections(agent);
-  agentFile.hidden = false;
-  agentFile.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-searchInput?.addEventListener("input", event => renderAgents(event.target.value));
-
-closeFileButton?.addEventListener("click", () => {
-  agentFile.hidden = true;
-});
-
-saveButton?.addEventListener("click", () => {
-  saveStatus.textContent = "La connexion au script sera ajoutée à l’étape suivante.";
-  window.setTimeout(() => {
-    saveStatus.textContent = "";
-  }, 3500);
-});
-
-renderSections();
-renderAgents();
+const API_URL="";
+const COMPETENCES=["Identitovigilance", "Hygiène", "Manutention et conduite du matériel", "Relation et communication avec le patient", "Compréhension des missions et utilisation du téléphone", "Repérage dans les bâtiments", "Communication avec les équipes", "Gestion des difficultés et imprévus", "Organisation et priorisation", "Autonomie globale"];
+let agents=[];let currentAgent=null;
+const $=s=>document.querySelector(s);
+function norm(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"")}
+function escapeHtml(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+function renderAgents(filter=""){const q=norm(filter);const list=agents.filter(a=>norm(`${a.nom}${a.prenom}${a.matricule||""}`).includes(q));$('#agent-count').textContent=list.length;$('#agent-list').innerHTML=list.length?list.map((a,i)=>`<button class="agent-card" data-index="${agents.indexOf(a)}"><div><strong>${escapeHtml(a.prenom)} ${escapeHtml(a.nom)}</strong><span>${escapeHtml(a.etape||'Dossier créé')}${a.matricule?' · Matricule '+escapeHtml(a.matricule):''}</span></div><span>›</span></button>`).join(''):`<div class="empty-state"><h3>Aucun agent enregistré</h3><p>Créez le premier dossier avec le bouton « Nouvel agent ».</p></div>`;document.querySelectorAll('.agent-card').forEach(b=>b.onclick=()=>openAgent(Number(b.dataset.index)))}
+function renderCompetences(a){$('#competence-grid').innerHTML=COMPETENCES.map((c,i)=>`<label>${escapeHtml(c)}<select data-competence="${i}"><option>Non observé</option><option>Découvert</option><option>Réalisé avec accompagnement</option><option>Réalisé avec une aide ponctuelle</option><option>Autonome</option><option>À revoir prioritairement</option></select></label>`).join('');document.querySelectorAll('[data-competence]').forEach(s=>s.value=(a.evaluations||{})[COMPETENCES[Number(s.dataset.competence)]]||'Non observé')}
+function renderAnswers(a){const data=a.agentAnswers||{};const entries=Object.entries(data);$('#agent-answers').innerHTML=entries.length?entries.map(([k,v])=>`<article class="answer-card"><strong>${escapeHtml(k)}</strong><p>${escapeHtml(v||'Non renseigné')}</p></article>`).join(''):'<div class="empty-state"><h3>Aucune réponse reçue</h3><p>Les formulaires transmis par l’agent apparaîtront ici.</p></div>'}
+function openAgent(i){currentAgent=agents[i];$('#agent-name').textContent=`${currentAgent.prenom} ${currentAgent.nom}`;$('#agent-meta').textContent=currentAgent.matricule?`Matricule : ${currentAgent.matricule}`:'';document.querySelectorAll('[data-field]').forEach(el=>el.value=currentAgent[el.dataset.field]||'');renderCompetences(currentAgent);renderAnswers(currentAgent);$('#agent-file').hidden=false;$('#agent-file').scrollIntoView({behavior:'smooth'})}
+function collectCurrent(){document.querySelectorAll('[data-field]').forEach(el=>currentAgent[el.dataset.field]=el.value);currentAgent.evaluations={};document.querySelectorAll('[data-competence]').forEach(el=>currentAgent.evaluations[COMPETENCES[Number(el.dataset.competence)]]=el.value)}
+function similarAgents(nom,prenom){const n=norm(nom),p=norm(prenom);return agents.filter(a=>norm(a.nom)===n&&norm(a.prenom)===p)}
+$('#new-agent').onclick=()=>{$('#new-agent-form').reset();$('#duplicate-warning').hidden=true;$('#new-agent-dialog').showModal()};
+$('#create-agent').onclick=e=>{e.preventDefault();const f=new FormData($('#new-agent-form'));const a=Object.fromEntries(f.entries());if(!a.nom.trim()||!a.prenom.trim()||!a.dateArrivee){alert('Nom, prénom et date d’arrivée sont obligatoires.');return}const dup=similarAgents(a.nom,a.prenom);if(dup.length&&!confirm(`Un dossier existe déjà pour ${a.prenom} ${a.nom}. Voulez-vous créer quand même une nouvelle ligne ?`))return;agents.push({...a,etape:'Premier jour',agentAnswers:{},evaluations:{}});localStorage.setItem('ghe_chef_agents_demo',JSON.stringify(agents));$('#new-agent-dialog').close();renderAgents();openAgent(agents.length-1)};
+$('#agent-search').oninput=e=>renderAgents(e.target.value);$('#close-file').onclick=()=>$('#agent-file').hidden=true;
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab,.tab-panel').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.querySelector(`[data-panel="${t.dataset.tab}"]`).classList.add('active')});
+$('#save-file').onclick=async()=>{collectCurrent();localStorage.setItem('ghe_chef_agents_demo',JSON.stringify(agents));$('#save-status').textContent=API_URL?'Enregistrement…':'Enregistré localement. Le script Google sera branché ensuite.';setTimeout(()=>$('#save-status').textContent='',3000)};
+try{agents=JSON.parse(localStorage.getItem('ghe_chef_agents_demo')||'[]')}catch{agents=[]}renderAgents();
