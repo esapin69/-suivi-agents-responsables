@@ -1,17 +1,13 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbyT31o3uSvwy-WrVZ4QGRQ8u9js6tpC4a1bzUy3VHl_ccySpAnFnjjPzzj3Vcrco6X_/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyxXxuuEjwHlFmXdjFn6tjlE6iJt41-yFRGyD3xWXCa4OvmKKWb8cU4pCwxsR_lOWhElQ/exec";
 
-const COMPETENCES = [
-  "Identitovigilance",
-  "Hygiène",
-  "Manutention et conduite du matériel",
-  "Relation et communication avec le patient",
-  "Compréhension des missions et utilisation du téléphone",
-  "Repérage dans les bâtiments",
-  "Communication avec les équipes",
-  "Gestion des difficultés et imprévus",
-  "Organisation et priorisation",
-  "Autonomie globale"
-];
+let COMPETENCES = [];
+let COMPETENCES_DETAILS = [];
+
+async function loadCompetences() {
+  const result = await apiGet("liste_competences");
+  COMPETENCES_DETAILS = Array.isArray(result.competences) ? result.competences : [];
+  COMPETENCES = COMPETENCES_DETAILS.map(item => item.code);
+}
 
 let agents = [];
 let currentAgent = null;
@@ -132,7 +128,8 @@ function renderCompetences(agent) {
   $("#competence-grid").innerHTML = COMPETENCES.map(
     (competence, index) => `
       <label>
-        ${escapeHtml(competence)}
+        ${escapeHtml((COMPETENCES_DETAILS[index] || {}).code || competence)} — ${escapeHtml((COMPETENCES_DETAILS[index] || {}).libelle || competence)}
+        <small>${escapeHtml((COMPETENCES_DETAILS[index] || {}).critere || "")}</small>
         <select data-competence="${index}">
           <option>Non observé</option>
           <option>Découvert</option>
@@ -315,7 +312,7 @@ $("#create-agent").onclick = async (event) => {
     }
 
     $("#new-agent-dialog").close();
-    await loadAgents();
+    await loadCompetences().then(loadAgents).catch(error => { alert(`Chargement impossible : ${error.message}`); });
 
     const createdIndex = agents.findIndex((agent) => agent.idAgent === result.idAgent);
     if (createdIndex >= 0) {
