@@ -132,11 +132,11 @@ function renderCompetences(agent) {
         <small>${escapeHtml((COMPETENCES_DETAILS[index] || {}).critere || "")}</small>
         <select data-competence="${index}">
           <option>Non observé</option>
-          <option>Découvert</option>
-          <option>Réalisé avec accompagnement</option>
-          <option>Réalisé avec une aide ponctuelle</option>
-          <option>Autonome</option>
-          <option>À revoir prioritairement</option>
+          <option>Vu avec l’agent</option>
+          <option>En cours d’acquisition</option>
+          <option>Acquis</option>
+          <option>Non acquis</option>
+          <option>Non concerné pour cette étape</option>
         </select>
       </label>`
   ).join("");
