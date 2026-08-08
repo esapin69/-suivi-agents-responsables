@@ -1,2 +1,48 @@
-// Point d'entrée du moteur de suivi.
-// Le branchement Google sera ajouté ici après validation de la passerelle.
+
+const API_URL = "https://suivi-agents-api.eddy-sapin.workers.dev";
+
+async function apiGet(action, params = {}) {
+  const url = new URL(API_URL + "/");
+  url.searchParams.set("action", action);
+  for (const [k,v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
+  }
+  const r = await fetch(url.toString(), { method:"GET", cache:"no-store" });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.message || data.code || "Erreur serveur");
+  return data;
+}
+
+async function apiPost(action, payload) {
+  const url = new URL(API_URL + "/");
+  url.searchParams.set("action", action);
+  const r = await fetch(url.toString(), {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({...payload, action})
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.message || data.code || "Erreur serveur");
+  return data;
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+
+function setStatus(el, type, message) {
+  el.className = "status show " + type;
+  el.innerHTML = message;
+}
+
+function q(name) { return document.querySelector(name); }
+
+function formObject(form) {
+  return Object.fromEntries(new FormData(form).entries());
+}
+
+function displayDate(iso) {
+  if (!iso) return "—";
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}

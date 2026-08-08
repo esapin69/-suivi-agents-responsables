@@ -1,1 +1,24 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Suivre un agent</title><link rel="stylesheet" href="style.css"></head><body><header>SUIVRE UN AGENT</header><main><a class="back" href="index.html">← Retour</a><section class="panel"><h1>Quel agent ?</h1><p>La recherche sera alimentée par le fichier central après branchement du moteur.</p><label>Nom ou prénom<input disabled placeholder="Rechercher un agent"></label><button disabled>Rechercher</button></section></main><script src="app.js"></script></body></html>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Suivre un agent</title><link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><div class="brand"><b>GHE</b> · SUIVRE UN AGENT</div><a class="home" href="index.html">Accueil suivi</a></header>
+<main class="shell"><a class="back" href="index.html">← Retour</a>
+<section class="hero"><div class="kicker">Dossiers agents</div><h1>Quel agent ?</h1><p>Recherchez par nom, prénom ou matricule. La liste vient directement de la source centrale.</p>
+<div class="searchbox"><input id="search" placeholder="Nom, prénom ou matricule" autocomplete="off"><button class="btn cyan" id="refresh">Actualiser</button></div>
+<div id="status" class="status"></div></section>
+<div class="agent-list" id="list"></div></main><script src="app.js"></script>
+<script>
+const list=q("#list"), search=q("#search"), status=q("#status");
+let agents=[];
+function render(){
+ const term=search.value.trim().toLowerCase();
+ const shown=agents.filter(a=>`${a.nom} ${a.prenom} ${a.matricule||""}`.toLowerCase().includes(term));
+ if(!shown.length){list.innerHTML='<div class="empty">Aucun agent trouvé.</div>';return;}
+ list.innerHTML=shown.map(a=>`<a class="agent" href="agent.html?id=${encodeURIComponent(a.id_agent)}"><div><strong>${esc(a.nom)} ${esc(a.prenom)}</strong><div class="meta">${a.matricule?`Matricule ${esc(a.matricule)}`:"Sans matricule"}</div></div><span class="badge ${(a.verification||"").toLowerCase()}">${esc(a.verification||"")}</span></a>`).join("");
+}
+async function load(){
+ setStatus(status,"warn","Chargement des agents…");
+ try{const d=await apiGet("listAgents"); agents=d.agents||[]; status.className="status"; render();}
+ catch(e){setStatus(status,"err","Impossible de charger la liste : "+esc(e.message));}
+}
+search.addEventListener("input",render); q("#refresh").addEventListener("click",load); load();
+</script></body></html>

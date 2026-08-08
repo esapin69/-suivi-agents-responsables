@@ -1,0 +1,40 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fiche agent</title><link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><div class="brand"><b>GHE</b> · FICHE AGENT</div><a class="home" href="suivre-agent.html">Agents</a></header>
+<main class="shell"><a class="back" href="suivre-agent.html">← Retour aux agents</a>
+<div id="status" class="status show warn">Chargement de la fiche…</div>
+<section class="hero" id="view" style="display:none">
+<div class="agent-head"><div><div class="kicker">Dossier individuel</div><h1 id="name">Agent</h1><p id="verify"></p></div><button class="btn light" id="editBtn">Modifier</button></div>
+<div class="details" id="details"></div>
+<div class="btnrow" style="margin-top:20px"><a class="btn cyan" id="fileBtn" target="_blank" rel="noopener">Ouvrir le fichier BROUILLON</a></div>
+</section>
+<section class="panel" id="edit" style="display:none"><h2>Modifier les informations</h2>
+<form class="form" id="editForm">
+<label>Nom *<input name="nom" required></label><label>Prénom *<input name="prenom" required></label>
+<label>N° de téléphone<input name="telephone" inputmode="tel"></label><label>N° de matricule<input name="matricule"></label>
+<label>Date d’arrivée au STIP *<input name="date_arrivee" type="date" required></label>
+<label>Expériences professionnelles<textarea name="experiences"></textarea></label>
+<div id="editStatus" class="status"></div>
+<div class="btnrow"><button class="btn cyan" type="submit">Enregistrer et vérifier</button><button class="btn light" type="button" id="cancel">Annuler</button></div>
+</form></section>
+<section class="panel" id="follow" style="display:none"><h2>Parcours de suivi</h2><p>Choisissez l’étape à compléter pour cet agent.</p><div class="steps">
+<a class="step" href="Formulaire/premier-jour.html">1er jour →</a><a class="step" href="Formulaire/premiere-semaine.html">1re semaine →</a>
+<a class="step" href="Formulaire/fin-doublure.html">Fin de doublure →</a><a class="step" href="Formulaire/suivi-1-mois.html">Suivi à 1 mois →</a>
+<a class="step" href="Formulaire/suivi-3-mois.html">Suivi à 3 mois →</a><a class="step" href="Formulaire/suivi-6-mois.html">Suivi à 6 mois →</a>
+<a class="step" href="Formulaire/suivi-complementaire.html">Suivi complémentaire →</a></div></section>
+</main><script src="app.js"></script><script>
+const id=new URL(location.href).searchParams.get("id"), status=q("#status"), view=q("#view"), edit=q("#edit"), follow=q("#follow"), form=q("#editForm"), es=q("#editStatus");
+let agent=null;
+function paint(a){
+ agent=a;q("#name").textContent=`${a.nom} ${a.prenom}`;q("#verify").innerHTML=`Statut : <strong>${esc(a.verification||"")}</strong>`;
+ q("#details").innerHTML=`<div class="detail"><small>Téléphone</small><strong>${esc(a.telephone||"—")}</strong></div><div class="detail"><small>Matricule</small><strong>${esc(a.matricule||"Non renseigné")}</strong></div><div class="detail"><small>Date d’arrivée</small><strong>${esc(displayDate(a.date_arrivee))}</strong></div><div class="detail"><small>Expérience</small><strong>${esc(a.experiences||"—")}</strong></div>`;
+ q("#fileBtn").href=a.fichier_brouillon_url||"#";
+ for(const [k,v] of Object.entries({nom:a.nom,prenom:a.prenom,telephone:a.telephone,matricule:a.matricule,date_arrivee:a.date_arrivee,experiences:a.experiences})){if(form.elements[k])form.elements[k].value=v||"";}
+ view.style.display="block";follow.style.display="block";status.className="status";
+}
+async function load(){try{if(!id)throw new Error("Identifiant agent manquant.");const d=await apiGet("getAgent",{id});if(!d.agent)throw new Error("Agent introuvable.");paint(d.agent);}catch(e){setStatus(status,"err",esc(e.message));}}
+q("#editBtn").onclick=()=>{edit.style.display="block";edit.scrollIntoView({behavior:"smooth"});};
+q("#cancel").onclick=()=>{edit.style.display="none";};
+form.addEventListener("submit",async e=>{e.preventDefault();setStatus(es,"warn","Modification et vérification en cours…");try{const d=await apiPost("updateAgent",{id_agent:id,...formObject(form)});if(!d.ok){setStatus(es,"err",esc(d.message||d.code));return;}paint(d.agent);setStatus(es,"ok","✓ Modifications enregistrées et relues dans la source centrale.");setTimeout(()=>{edit.style.display="none";},900);}catch(err){setStatus(es,"err","Échec : "+esc(err.message));}});
+load();
+</script></body></html>

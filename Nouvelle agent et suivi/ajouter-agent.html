@@ -1,1 +1,65 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ajouter un agent</title><link rel="stylesheet" href="style.css"></head><body><header>NOUVEL AGENT</header><main><a class="back" href="index.html">← Retour</a><section class="panel"><h1>Créer le dossier</h1><div class="info">Le moteur d’écriture Google sera branché ici. Aucun faux enregistrement n’est simulé.</div><label>Nom *<input required></label><label>Prénom *<input required></label><label>N° de téléphone<input></label><label>N° de matricule<input></label><label>Date d’arrivée au STIP *<input type="date" required></label><label>Expériences professionnelles<textarea></textarea></label><button disabled>Créer et vérifier le dossier</button></section></main><script src="app.js"></script></body></html>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ajouter un agent</title><link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><div class="brand"><b>GHE</b> · NOUVEL AGENT</div><a class="home" href="index.html">Accueil suivi</a></header>
+<main class="shell"><a class="back" href="index.html">← Retour</a>
+<section class="hero"><div class="kicker">Création du dossier</div><h1>Ajouter un agent</h1><p>Les informations seront enregistrées dans la source centrale puis vérifiées avant confirmation.</p></section>
+<section class="panel" id="formPanel">
+<form class="form" id="agentForm">
+<label>Nom *<input name="nom" autocomplete="family-name" required></label>
+<label>Prénom *<input name="prenom" autocomplete="given-name" required></label>
+<label>N° de téléphone<input name="telephone" inputmode="tel" autocomplete="tel"></label>
+<label>N° de matricule<input name="matricule"><span class="hint">Facultatif si le matricule n’est pas encore attribué.</span></label>
+<label>Date d’arrivée au STIP *<input name="date_arrivee" type="date" required></label>
+<label>Expériences professionnelles<textarea name="experiences"></textarea></label>
+<div id="status" class="status"></div>
+<button class="btn cyan" id="submitBtn" type="submit"><span class="loader">⏳</span><span class="btntext">Créer et vérifier le dossier</span></button>
+</form>
+</section>
+<section class="success-card" id="successCard">
+<div class="kicker">Enregistrement confirmé</div><h2>✓ Agent créé et vérifié</h2><div id="successInfo"></div>
+<div class="btnrow" style="margin-top:20px">
+<a class="btn cyan" id="openAgent" href="#">Ouvrir la fiche</a>
+<a class="btn light" id="openFile" href="#" target="_blank" rel="noopener">Ouvrir le brouillon</a>
+<a class="btn light" href="ajouter-agent.html">Ajouter un autre agent</a>
+</div></section>
+</main><script src="app.js"></script>
+<script>
+const form=q("#agentForm"), status=q("#status"), btn=q("#submitBtn");
+let lastPayload=null;
+
+async function submitAgent(force=false){
+  lastPayload=formObject(form);
+  if(force) lastPayload.force=true;
+  btn.disabled=true; btn.classList.add("loading");
+  setStatus(status,"warn","Enregistrement et vérification en cours…");
+  try{
+    const data=await apiPost("createAgent",lastPayload);
+    if(!data.ok){
+      if(data.code==="NOM_DEJA_PRESENT"){
+        const names=(data.candidates||[]).map(a=>`<strong>${esc(a.nom)} ${esc(a.prenom)}</strong>${a.matricule?` · matricule ${esc(a.matricule)}`:""}`).join("<br>");
+        setStatus(status,"warn",`Un agent portant ce nom existe déjà.<br>${names}<div class="btnrow" style="margin-top:12px"><button type="button" class="btn light" id="forceCreate">Créer quand même</button><a class="btn light" href="suivre-agent.html">Rechercher l’agent</a></div>`);
+        q("#forceCreate").onclick=()=>submitAgent(true);
+        return;
+      }
+      if(data.code==="MATRICULE_EXISTANT"){
+        setStatus(status,"err",`Création bloquée : ce matricule est déjà associé à <strong>${esc(data.existing?.nom||"")} ${esc(data.existing?.prenom||"")}</strong>.`);
+        return;
+      }
+      setStatus(status,"err",esc(data.message||data.code||"Impossible de créer l’agent."));
+      return;
+    }
+    const a=data.agent;
+    q("#successInfo").innerHTML=`<p><strong>${esc(a.nom)} ${esc(a.prenom)}</strong><br>${a.matricule?`Matricule : ${esc(a.matricule)} · `:""}Statut : ${esc(a.verification||"")}</p><p>La ligne centrale et le fichier individuel ont été relus après création.</p>`;
+    q("#openAgent").href=`agent.html?id=${encodeURIComponent(a.id_agent)}`;
+    q("#openFile").href=a.fichier_brouillon_url||"#";
+    q("#formPanel").style.display="none";
+    q("#successCard").classList.add("show");
+    q("#successCard").scrollIntoView({behavior:"smooth"});
+  }catch(e){
+    setStatus(status,"err","Échec de la liaison : "+esc(e.message));
+  }finally{
+    btn.disabled=false; btn.classList.remove("loading");
+  }
+}
+form.addEventListener("submit",e=>{e.preventDefault(); if(form.reportValidity()) submitAgent(false);});
+</script></body></html>
