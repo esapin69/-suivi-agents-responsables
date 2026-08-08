@@ -1,0 +1,32 @@
+VERSION COMPLETE - RESPONSABLE.ESAPIN.COM
+
+Cette archive est conçue pour remplacer proprement le contenu du dépôt.
+
+A GARDER / IMPORTER :
+- CNAME
+- index.html
+- style.css
+- dossier "Nouvelle agent et suivi" complet
+
+A SUPPRIMER DE L'ANCIEN DEPOT :
+- les anciens app.js / schema-suivi.json / anciens style.css racine s'ils restent en dehors de cette archive
+- l'ancien dossier formulaires-suivi s'il existe encore
+- tout ancien dossier doublon consacré au suivi
+
+MOTEUR DEJA BRANCHE :
+https://suivi-agents-api.eddy-sapin.workers.dev/
+
+Accueil :
+- Suivi des agents
+- Notes rapides (Google Sites)
+
+Dans le suivi :
+- Ajouter un agent : réel
+- Vérification doublon nom / matricule : réelle
+- Création du fichier BROUILLON : réelle via Apps Script
+- Recherche agents : réelle
+- Ouverture fiche : réelle
+- Modification agent : réelle
+- Mise à jour du même fichier BROUILLON : réelle
+
+Les 8 formulaires de suivi sont présents mais leur contenu sera branché ensuite.

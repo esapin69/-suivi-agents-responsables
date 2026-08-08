@@ -1,42 +1,25 @@
 <!doctype html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Suivi des agents</title>
-<style>
-*{box-sizing:border-box}
-body{margin:0;background:#f3f5f7;color:#111;font-family:Arial,Helvetica,sans-serif}
-header{background:#fff;border-bottom:1px solid #dfe5e9;padding:22px 6vw;font-weight:800;font-size:26px}
-header span{color:#16a9d4}
-main{min-height:calc(100vh - 76px);display:flex;align-items:center;justify-content:center;padding:28px}
-.wrap{width:min(920px,100%)}
-.kicker{color:#118bb3;font-size:14px;font-weight:800;letter-spacing:2px;margin-bottom:14px}
-h1{font-size:clamp(46px,8vw,76px);line-height:1;margin:0 0 20px}
-p{font-size:20px;line-height:1.5;color:#5d6870;max-width:720px;margin:0 0 36px}
-.card{display:block;background:#fff;border:1px solid #dce4e8;border-top:6px solid #19add8;border-radius:14px;padding:28px 30px;text-decoration:none;color:#111;box-shadow:0 12px 30px rgba(0,0,0,.06)}
-.card strong{font-size:27px;display:block;margin-bottom:8px}
-.card small{font-size:17px;color:#66727a}
-.arrow{float:right;font-size:32px;color:#159fc9}
-.note{margin-top:24px;font-size:13px;color:#7a858c}
-</style>
-</head>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Espace responsables · GHE</title><link rel="stylesheet" href="style.css"></head>
 <body>
-<header><span>GHE</span> · SUIVI DES AGENTS</header>
-<main>
-<div class="wrap">
-<div class="kicker">OUTIL INTERNE · SUIVI D’INTÉGRATION</div>
-<h1>Suivi des agents</h1>
-<p>Accéder simplement à l’espace de création et de suivi des dossiers agents.</p>
-
-<a class="card" href="Nouvelle%20agent%20et%20suivi/">
-<span class="arrow">→</span>
-<strong>Ouvrir le suivi des agents</strong>
-<small>Créer un agent, retrouver son dossier et poursuivre son suivi.</small>
-</a>
-
-<div class="note">Cet espace est un outil de travail interne et ne se substitue pas aux outils institutionnels.</div>
-</div>
-</main>
-</body>
-</html>
+<header class="topbar"><div class="brand"><b>GHE</b> · ESPACE RESPONSABLES</div><div class="micro">OUTIL INTERNE</div></header>
+<main class="shell">
+  <section class="hero">
+    <div class="kicker">Organisation · suivi · terrain</div>
+    <h1>Accès rapide</h1>
+    <p>Deux outils, deux actions simples : suivre les agents ou consigner rapidement une information terrain.</p>
+  </section>
+  <section class="cards">
+    <a class="card follow" href="Nouvelle%20agent%20et%20suivi/">
+      <div class="icon">👤</div><h2>Suivi des agents</h2>
+      <p>Créer un dossier, retrouver un agent, modifier ses informations et poursuivre son parcours de suivi.</p>
+      <span class="arrow">→</span>
+    </a>
+    <a class="card notes" href="https://sites.google.com/view/hfme-notes/notes-rapides" target="_blank" rel="noopener">
+      <div class="icon">✍️</div><h2>Prendre des notes</h2>
+      <p>Ouvrir directement l’outil Notes rapides pour consigner ou consulter une information.</p>
+      <span class="arrow">↗</span>
+    </a>
+  </section>
+  <div class="foot">Espace de travail interne. Il facilite l’organisation quotidienne et ne se substitue pas aux outils ou procédures institutionnels.</div>
+</main></body></html>
