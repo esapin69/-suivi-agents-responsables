@@ -2,25 +2,260 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Espace responsables</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suivi des agents · GHE</title>
+  <style>
+    :root{
+      --bg:#e9e9e9;
+      --card:#ffffff;
+      --ink:#111;
+      --muted:#5e5e5e;
+      --black:#050607;
+      --line:#d5d5d5;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      color:var(--ink);
+      background:var(--bg);
+    }
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:20;
+      background:#fff;
+      border-bottom:1px solid #ddd;
+      min-height:72px;
+      display:flex;
+      align-items:center;
+      gap:16px;
+      padding:12px 22px;
+    }
+    .menu{
+      font-size:32px;
+      line-height:1;
+      border:0;
+      background:transparent;
+      padding:0;
+      color:#111;
+    }
+    .brand{
+      font-size:28px;
+      font-weight:700;
+      letter-spacing:.2px;
+    }
+    .brand span{font-weight:400}
+    main{
+      width:min(920px, calc(100% - 34px));
+      margin:0 auto;
+      padding-bottom:70px;
+    }
+    .hero{
+      margin:0 calc((100vw - min(920px, calc(100vw - 34px)))/-2);
+      background:#030607;
+      padding:58px 20px 52px;
+      text-align:center;
+      color:#fff;
+    }
+    .hero .eyebrow{
+      margin:0 0 8px;
+      font-size:16px;
+      letter-spacing:2px;
+      color:#b8b8b8;
+      font-weight:700;
+    }
+    .hero h1{
+      margin:0;
+      font-size:clamp(42px,8vw,74px);
+      line-height:1;
+      letter-spacing:-1px;
+    }
+    .hero p{
+      max-width:700px;
+      margin:20px auto 0;
+      color:#d6d6d6;
+      font-size:20px;
+      line-height:1.45;
+    }
+    .actions{
+      padding:28px 0 12px;
+      display:grid;
+      gap:16px;
+    }
+    .bigbtn{
+      display:block;
+      width:100%;
+      border:0;
+      border-radius:6px;
+      background:var(--black);
+      color:#fff;
+      text-decoration:none;
+      text-align:center;
+      padding:18px 20px;
+      font-size:23px;
+      cursor:pointer;
+    }
+    .section{
+      margin-top:28px;
+      background:#fff;
+      padding:26px;
+    }
+    .section h2{
+      margin:0 0 18px;
+      text-align:center;
+      font-size:34px;
+    }
+    .section p{
+      text-align:center;
+      color:var(--muted);
+      font-size:18px;
+      margin:0;
+      line-height:1.45;
+    }
+    .agent-panel{
+      display:none;
+      margin-top:18px;
+      border-top:1px solid var(--line);
+      padding-top:20px;
+    }
+    .agent-panel.open{display:block}
+    form{
+      display:grid;
+      gap:16px;
+      margin-top:8px;
+    }
+    label{
+      display:grid;
+      gap:7px;
+      font-size:17px;
+      font-weight:700;
+    }
+    input, textarea{
+      width:100%;
+      border:1px solid #bdbdbd;
+      border-radius:6px;
+      background:#fff;
+      font:inherit;
+      padding:14px 15px;
+      font-weight:400;
+    }
+    textarea{min-height:110px; resize:vertical}
+    .hint{
+      font-size:14px;
+      color:#696969;
+      font-weight:400;
+    }
+    .notice{
+      margin-top:18px;
+      padding:15px 16px;
+      background:#f4f4f4;
+      border-left:4px solid #111;
+      font-size:15px;
+      line-height:1.4;
+    }
+    .footer-note{
+      margin-top:34px;
+      padding:24px;
+      border-top:2px solid #bdbdbd;
+      color:#555;
+      font-size:14px;
+      line-height:1.5;
+    }
+    @media (max-width:600px){
+      .topbar{min-height:60px;padding:10px 14px}
+      .brand{font-size:21px}
+      .menu{font-size:27px}
+      main{width:min(100% - 22px,920px)}
+      .hero{padding:42px 18px}
+      .hero p{font-size:17px}
+      .bigbtn{font-size:20px;padding:16px}
+      .section{padding:20px 16px}
+      .section h2{font-size:28px}
+    }
+  </style>
 </head>
-<body class="home-page">
-  <main class="home-shell redesigned-home">
-    <header class="responsible-hero">
+<body>
+  <header class="topbar">
+    <button class="menu" type="button" aria-label="Menu">☰</button>
+    <div class="brand">👤 <span>·</span> SUIVI DES AGENTS</div>
+  </header>
+
+  <main>
+    <section class="hero">
       <p class="eyebrow">GHE · SUIVI D’INTÉGRATION</p>
-      <h1>Bienvenue</h1>
-      <p>Accédez aux dossiers individuels, réalisez les évaluations prévues et consignez les observations utiles au suivi des nouveaux agents.</p>
-      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px">
-        <a class="primary-button big-entry" href="suivi-agents.html" style="margin-top:0">Ouvrir le suivi des agents</a>
-        <a class="primary-button big-entry" href="formulaires-suivi/" style="margin-top:0">Formulaires de suivi</a>
-      </div>
-    </header>
-    <section class="home-info">
-      <h2>Un dossier unique par agent</h2>
-      <p>Les réponses de l’agent, les évaluations des responsables, les actions décidées et les événements indépendants sont regroupés dans le même suivi.</p>
+      <h1>Suivi des agents</h1>
+      <p>Retrouver un agent, commencer son suivi ou créer son dossier en quelques actions.</p>
     </section>
+
+    <section class="actions" aria-label="Actions principales">
+      <a class="bigbtn" href="formulaires-suivi/index.html">👤 Suivre un agent</a>
+      <button class="bigbtn" id="addAgentBtn" type="button">＋ Ajouter un agent</button>
+    </section>
+
+    <section class="section">
+      <h2>Un parcours simple</h2>
+      <p>Choisir l’agent → choisir l’action → remplir → terminé.</p>
+
+      <div class="agent-panel" id="agentPanel">
+        <form id="agentForm">
+          <label>
+            Nom *
+            <input name="nom" autocomplete="family-name" required>
+          </label>
+          <label>
+            Prénom *
+            <input name="prenom" autocomplete="given-name" required>
+          </label>
+          <label>
+            N° de téléphone
+            <input name="telephone" inputmode="tel" autocomplete="tel">
+          </label>
+          <label>
+            N° de matricule
+            <input name="matricule">
+            <span class="hint">Facultatif si le matricule n’est pas encore attribué.</span>
+          </label>
+          <label>
+            Date d’arrivée au STIP *
+            <input name="date_arrivee" type="date" required>
+          </label>
+          <label>
+            Expériences professionnelles
+            <textarea name="experience"></textarea>
+          </label>
+          <button class="bigbtn" type="submit">Créer l’agent</button>
+        </form>
+
+        <div class="notice" id="demoNotice" hidden>
+          Interface prête. L’enregistrement dans le fichier central et la création du fichier individuel seront branchés à l’étape suivante.
+        </div>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      Cet écran est volontairement réduit aux actions essentielles. Les formulaires et la mécanique de stockage restent derrière le parcours utilisateur.
+    </div>
   </main>
+
+  <script>
+    const btn = document.getElementById('addAgentBtn');
+    const panel = document.getElementById('agentPanel');
+    const form = document.getElementById('agentForm');
+    const notice = document.getElementById('demoNotice');
+
+    btn.addEventListener('click', () => {
+      panel.classList.toggle('open');
+      if(panel.classList.contains('open')){
+        panel.scrollIntoView({behavior:'smooth', block:'start'});
+      }
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      notice.hidden = false;
+      notice.scrollIntoView({behavior:'smooth', block:'center'});
+    });
+  </script>
 </body>
 </html>
