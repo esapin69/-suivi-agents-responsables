@@ -1,8 +1,52 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Évaluations</title><link rel="stylesheet" href="style.css"></head><body>
-<header class="top"><div class="brand"><b>GHE</b> · ÉVALUATIONS</div><a class="home" data-agent-link="agent.html" href="suivre-agent.html">Fiche agent</a></header>
-<main class="shell"><a class="back" data-agent-link="agent.html" href="suivre-agent.html">← Retour à la fiche agent</a>
-<div id="contextStatus" class="status show warn">Chargement de l’agent…</div>
-<section class="context-card"><div><div class="kicker">Agent sélectionné</div><div class="context-name" data-agent-name>Chargement…</div><p data-agent-meta></p></div><a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Voir la fiche</a></section>
-<section class="panel empty-panel"><div class="workspace-icon" aria-hidden="true">✓</div><h1>Évaluations</h1><h2>Aucune évaluation publiée</h2><p>Cet espace accueillera plusieurs évaluations officielles datées, consultables, modifiables et imprimables. Aucun contenu n’est créé avant validation.</p></section>
-</main><script src="app.js"></script><script src="agent-context.js"></script><script>AgentContext.load().catch(()=>{});</script></body></html>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Évaluations</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><b>GHE</b> · ÉVALUATIONS</div>
+  <a class="home" data-agent-link="agent.html" href="suivre-agent.html">Fiche agent</a>
+</header>
+<main class="shell">
+  <a class="back" data-agent-link="agent.html" href="suivre-agent.html">← Retour à la fiche agent</a>
+  <div id="contextStatus" class="status show warn">Chargement de l’agent…</div>
+
+  <section class="context-card">
+    <div><div class="kicker">Agent sélectionné</div><div class="context-name" data-agent-name>Chargement…</div><p data-agent-meta></p></div>
+    <a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Voir la fiche</a>
+  </section>
+
+  <section class="panel" id="listPanel">
+    <div class="evaluation-title-row"><div><div class="kicker">Historique officiel</div><h1 class="page-title">Évaluations</h1></div><button class="btn cyan" id="newBtn" type="button">Nouvelle évaluation</button></div>
+    <div id="listStatus" class="status"></div>
+    <div id="evaluationList" class="evaluation-list"></div>
+  </section>
+
+  <section class="panel" id="formPanel" hidden>
+    <div class="evaluation-title-row"><div><div class="kicker" id="formKicker">Nouvelle évaluation</div><h2 id="formTitle">Brouillon</h2></div><button class="btn light" id="closeBtn" type="button">Fermer</button></div>
+    <form id="evaluationForm" class="form">
+      <input type="hidden" name="id_evaluation">
+      <div class="form-grid three">
+        <label>Grade *<input name="grade" required autocomplete="organization-title"></label>
+        <label>Service *<input name="service" required value="STIP"></label>
+        <label>Date d’évaluation *<input name="date_evaluation" type="date" required></label>
+        <label>Évaluateur *<input name="evaluateur" required autocomplete="name"></label>
+        <label>Date « Lyon, le » *<input name="lyon_le" type="date" required></label>
+        <label>Garder cet agent ? *<select name="garder_agent" required><option value="">Choisir…</option><option>OUI</option><option>NON</option></select></label>
+      </div>
+      <div id="criteria"></div>
+      <label>Observations générales<textarea name="observations_generales"></textarea></label>
+      <div id="formStatus" class="status"></div>
+      <a class="btn cyan evaluation-pdf" id="pdfBtn" href="#" target="_blank" rel="noopener" hidden>Ouvrir le PDF officiel</a>
+      <div class="final-warning"><strong>Validation définitive</strong><p>Après validation, cette version et son PDF deviennent non modifiables. Une correction créera une nouvelle version.</p><label class="confirm-line"><input type="checkbox" id="confirmFinal"> Je confirme avoir relu toute l’évaluation.</label></div>
+      <div class="btnrow"><button class="btn light" id="saveBtn" type="button">Enregistrer le brouillon</button><button class="btn cyan" id="finalizeBtn" type="button" disabled>Valider et générer le PDF</button></div>
+    </form>
+  </section>
+</main>
+<script src="app.js"></script><script src="agent-context.js"></script><script src="evaluations.js"></script>
+</body>
+</html>
