@@ -1,0 +1,15 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Suivi d’intégration</title><link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><div class="brand"><b>GHE</b> · SUIVI D’INTÉGRATION</div><a class="home" data-agent-link="agent.html" href="suivre-agent.html">Fiche agent</a></header>
+<main class="shell"><a class="back" data-agent-link="agent.html" href="suivre-agent.html">← Retour à la fiche agent</a>
+<div id="contextStatus" class="status show warn">Chargement de l’agent…</div>
+<section class="context-card"><div><div class="kicker">Agent sélectionné</div><div class="context-name" data-agent-name>Chargement…</div><p data-agent-meta></p></div><a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Voir la fiche</a></section>
+<section class="panel"><div class="kicker">Parcours</div><h1>Suivi d’intégration</h1><p>L’agent reste sélectionné automatiquement. Les questionnaires seront ajoutés uniquement après validation de leur contenu.</p>
+<div class="stage-list">
+<a class="stage-link" data-agent-link="etape-integration.html" data-step="premier-jour" href="#"><span>1er jour</span><span>→</span></a>
+<a class="stage-link" data-agent-link="etape-integration.html" data-step="premiere-semaine" href="#"><span>1re semaine</span><span>→</span></a>
+<a class="stage-link" data-agent-link="etape-integration.html" data-step="fin-doublure" href="#"><span>Fin de doublure</span><span>→</span></a>
+<a class="stage-link" data-agent-link="etape-integration.html" data-step="un-mois" href="#"><span>1 mois</span><span>→</span></a>
+<a class="stage-link" data-agent-link="etape-integration.html" data-step="trois-mois" href="#"><span>3 mois</span><span>→</span></a>
+<a class="stage-link" data-agent-link="etape-integration.html" data-step="six-mois" href="#"><span>6 mois</span><span>→</span></a>
+</div></section></main><script src="app.js"></script><script src="agent-context.js"></script><script>AgentContext.load().catch(()=>{});</script></body></html>
