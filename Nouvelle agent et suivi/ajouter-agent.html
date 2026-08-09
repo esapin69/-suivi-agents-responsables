@@ -5,8 +5,9 @@
 <section class="hero"><div class="kicker">Création du dossier</div><h1>Ajouter un agent</h1><p>Les informations seront enregistrées dans la source centrale puis vérifiées avant confirmation.</p></section>
 <section class="panel" id="formPanel">
 <form class="form" id="agentForm">
-<label>Nom *<input name="nom" autocomplete="family-name" required></label>
-<label>Prénom *<input name="prenom" autocomplete="given-name" required></label>
+<label>Agent *<select id="directorySelect" required><option value="">Chargement de l’annuaire…</option></select><span class="hint">La sélection ne crée aucun dossier. Le dossier sera créé uniquement après validation de ce formulaire.</span></label>
+<input type="hidden" name="nom"><input type="hidden" name="prenom">
+<div id="selectedAgent" class="selected-agent" hidden></div>
 <label>N° de téléphone<input name="telephone" inputmode="tel" autocomplete="tel"></label>
 <label>N° de matricule<input name="matricule"><span class="hint">Facultatif si le matricule n’est pas encore attribué.</span></label>
 <label>Date d’arrivée au STIP *<input name="date_arrivee" type="date" required></label>
@@ -22,10 +23,43 @@
 <a class="btn light" id="openFile" href="#" target="_blank" rel="noopener">Ouvrir le brouillon</a>
 <a class="btn light" href="ajouter-agent.html">Ajouter un autre agent</a>
 </div></section>
-</main><script src="app.js"></script>
+</main><script src="app.js"></script><script src="annuaire.js"></script>
 <script>
 const form=q("#agentForm"), status=q("#status"), btn=q("#submitBtn");
+const directorySelect=q("#directorySelect"), selectedAgent=q("#selectedAgent");
 let lastPayload=null;
+let directory=[];
+
+async function loadDirectory(){
+  try{
+    directory=ANNUAIRE_AGENTS.map(a=>({...a}));
+    const data=await apiGet("listAgents");
+    const existing=data.agents||[];
+    const key=a=>`${String(a.nom||"").trim().toLocaleUpperCase("fr")}|${String(a.prenom||"").trim().toLocaleUpperCase("fr")}`;
+    const byName=new Map(existing.map(a=>[key(a),a]));
+    directory=directory.map(a=>{
+      const found=byName.get(key(a));
+      return found?{...a,suivi_existant:true,id_agent:found.id_agent}:{...a,suivi_existant:false};
+    });
+    directorySelect.innerHTML='<option value="">Choisir un agent…</option>'+directory.map((a,i)=>`<option value="${i}">${esc(a.nom)} ${esc(a.prenom)}${a.poste?` — ${esc(a.poste)}`:""}${a.suivi_existant?" — suivi déjà créé":""}</option>`).join("");
+  }catch(e){
+    directory=ANNUAIRE_AGENTS.map(a=>({...a,suivi_existant:false}));
+    directorySelect.innerHTML='<option value="">Choisir un agent…</option>'+directory.map((a,i)=>`<option value="${i}">${esc(a.nom)} ${esc(a.prenom)} — ${esc(a.poste)}</option>`).join("");
+    setStatus(status,"warn","La vérification automatique des suivis existants est momentanément indisponible. Le serveur bloquera tout doublon lors de la validation.");
+  }
+}
+
+directorySelect.addEventListener("change",()=>{
+  const a=directorySelect.value===""?null:directory[Number(directorySelect.value)];
+  form.elements.nom.value=a?.nom||"";
+  form.elements.prenom.value=a?.prenom||"";
+  if(!a){selectedAgent.hidden=true;btn.disabled=false;return;}
+  selectedAgent.hidden=false;
+  selectedAgent.innerHTML=`<strong>${esc(a.nom)} ${esc(a.prenom)}</strong><span>${esc(a.poste||"Poste non renseigné")}</span>${a.suivi_existant?`<a class="btn light" href="agent.html?id=${encodeURIComponent(a.id_agent)}">Ouvrir le suivi existant</a>`:""}`;
+  btn.disabled=a.suivi_existant;
+  if(a.suivi_existant)setStatus(status,"warn","Le suivi de cet agent existe déjà. Ouvrez sa fiche au lieu de créer un doublon.");
+  else status.className="status";
+});
 
 async function submitAgent(force=false){
   lastPayload=formObject(form);
@@ -62,4 +96,5 @@ async function submitAgent(force=false){
   }
 }
 form.addEventListener("submit",e=>{e.preventDefault(); if(form.reportValidity()) submitAgent(false);});
+loadDirectory();
 </script></body></html>
