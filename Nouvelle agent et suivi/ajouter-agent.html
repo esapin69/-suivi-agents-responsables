@@ -23,7 +23,7 @@
 <a class="btn light" id="openFile" href="#" target="_blank" rel="noopener">Ouvrir le brouillon</a>
 <a class="btn light" href="ajouter-agent.html">Ajouter un autre agent</a>
 </div></section>
-</main><script src="app.js"></script><script src="annuaire.js"></script>
+</main><script src="app.js"></script>
 <script>
 const form=q("#agentForm"), status=q("#status"), btn=q("#submitBtn");
 const directorySelect=q("#directorySelect"), selectedAgent=q("#selectedAgent");
@@ -32,20 +32,16 @@ let directory=[];
 
 async function loadDirectory(){
   try{
-    directory=ANNUAIRE_AGENTS.map(a=>({...a}));
-    const data=await apiGet("listAgents");
-    const existing=data.agents||[];
-    const key=a=>`${String(a.nom||"").trim().toLocaleUpperCase("fr")}|${String(a.prenom||"").trim().toLocaleUpperCase("fr")}`;
-    const byName=new Map(existing.map(a=>[key(a),a]));
-    directory=directory.map(a=>{
-      const found=byName.get(key(a));
-      return found?{...a,suivi_existant:true,id_agent:found.id_agent}:{...a,suivi_existant:false};
-    });
+    const data=await apiGet("listDirectory");
+    directory=data.agents||[];
     directorySelect.innerHTML='<option value="">Choisir un agent…</option>'+directory.map((a,i)=>`<option value="${i}">${esc(a.nom)} ${esc(a.prenom)}${a.poste?` — ${esc(a.poste)}`:""}${a.suivi_existant?" — suivi déjà créé":""}</option>`).join("");
+    directorySelect.disabled=false;
   }catch(e){
-    directory=ANNUAIRE_AGENTS.map(a=>({...a,suivi_existant:false}));
-    directorySelect.innerHTML='<option value="">Choisir un agent…</option>'+directory.map((a,i)=>`<option value="${i}">${esc(a.nom)} ${esc(a.prenom)} — ${esc(a.poste)}</option>`).join("");
-    setStatus(status,"warn","La vérification automatique des suivis existants est momentanément indisponible. Le serveur bloquera tout doublon lors de la validation.");
+    directory=[];
+    directorySelect.innerHTML='<option value="">Annuaire indisponible</option>';
+    directorySelect.disabled=true;
+    btn.disabled=true;
+    setStatus(status,"err","Impossible de charger l’annuaire central. Aucun dossier ne peut être créé tant que la liaison n’est pas rétablie.");
   }
 }
 
