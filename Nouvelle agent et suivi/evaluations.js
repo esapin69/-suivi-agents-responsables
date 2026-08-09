@@ -1,9 +1,9 @@
 const EVALUATION_SECTIONS = [
   {title:"I — Aptitude au service", observation:"observations_1", criteria:["Aptitude à travailler sans contrôle","Efficacité","Esprit pratique","Souci de perfectionnement"]},
-  {title:"II — Exécution du travail", observation:"observations_2", criteria:["Rapidité d'exécution","Qualité du travail","Sens de l'organisation","Initiative"]},
-  {title:"III — Travail en commun", observation:"observations_3", criteria:["Caractère","Relation avec le personnel infirmier","Contact avec les autres agents du service","Contact avec l’encadrement"]},
+  {title:"II — Application dans l’exécution du travail", observation:"observations_2", criteria:["Rapidité d'exécution","Qualité du travail","Sens de l'organisation","Initiative"]},
+  {title:"III — Sens du travail en commun", observation:"observations_3", criteria:["Caractère","Relation avec le personnel infirmier","Contact avec les autres agents du service","Contact avec l’encadrement"]},
   {title:"IV — Comportement envers les malades", observation:"observations_4", criteria:["Disponibilité","Discrétion","Attitude envers les visiteurs"]},
-  {title:"V — Tenue, ponctualité, assiduité", observation:"observations_5", criteria:["Utilisation du temps de travail","Attitude générale","Propreté dans la tenue","Régularité","Ponctualité / assiduité"]}
+  {title:"V — Tenue générale, ponctualité, assiduité", observation:"observations_5", criteria:["Utilisation du temps de travail","Attitude générale","Propreté dans la tenue","Régularité","Ponctualité / assiduité"]}
 ];
 const LEVELS=["Insuffisant","Médiocre","Passable","Assez bien","Bien","Très bien","Exceptionnel"];
 const slug=s=>String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"").toLowerCase();
@@ -11,7 +11,7 @@ const state={agent:null,evaluations:[],locked:false};
 const el=id=>document.getElementById(id);
 
 function renderCriteria(){
-  el("criteria").innerHTML=EVALUATION_SECTIONS.map((section,si)=>`<fieldset class="evaluation-section"><legend>${esc(section.title)}</legend>${section.criteria.map(label=>{const name="critere_"+slug(label);return `<div class="criterion"><div class="criterion-label">${esc(label)} *</div><div class="level-options">${LEVELS.map((level,i)=>`<label><input type="radio" name="${name}" value="${esc(level)}" required><span>${i+1}<small>${esc(level)}</small></span></label>`).join("")}</div></div>`}).join("")}<label>Observations de la section<textarea name="${section.observation}"></textarea></label></fieldset>`).join("");
+  el("criteria").innerHTML=EVALUATION_SECTIONS.map(section=>`<fieldset class="evaluation-section"><legend>${esc(section.title)}</legend><div class="criteria-table">${section.criteria.map(label=>{const name="critere_"+slug(label);return `<div class="criterion"><div class="criterion-label">${esc(label)} <span aria-hidden="true">*</span></div><div class="level-options" role="radiogroup" aria-label="${esc(label)}">${LEVELS.map((level,i)=>`<label title="${esc(level)}"><input type="radio" name="${name}" value="${esc(level)}" required><span><b>${i+1}</b><small>${esc(level)}</small></span></label>`).join("")}</div></div>`}).join("")}</div><label class="section-observation">Observations<textarea name="${section.observation}" placeholder="Observations pour cette rubrique"></textarea></label></fieldset>`).join("");
 }
 function today(){return new Date().toISOString().slice(0,10)}
 function payload(){const data=Object.fromEntries(new FormData(el("evaluationForm")).entries());data.id_agent=AgentContext.id;data.criteres={};EVALUATION_SECTIONS.flatMap(s=>s.criteria).forEach(label=>{data.criteres[label]=data["critere_"+slug(label)]||"";delete data["critere_"+slug(label)];});return data}
