@@ -41,7 +41,11 @@
           <label>Responsable évaluateur *<select name="evaluateur" id="evaluatorSelect" required><option value="">Chargement des responsables…</option></select></label>
         </div>
       </section>
-      <div class="scale-key" aria-label="Échelle officielle"><strong>Échelle de notation</strong><div><span><b>1</b>Insuffisant</span><span><b>2</b>Médiocre</span><span><b>3</b>Passable</span><span><b>4</b>Assez bien</span><span><b>5</b>Bien</span><span><b>6</b>Très bien</span><span><b>7</b>Exceptionnel</span></div></div>
+      <div class="previous-evaluation-reference" id="previousEvaluationReference">
+        <button class="btn light previous-evaluation-btn" id="previousEvaluationBtn" type="button" disabled>Maintenir pour voir la dernière évaluation</button>
+        <small id="previousEvaluationHint">Recherche de la dernière évaluation validée…</small>
+      </div>
+      <div class="scale-key" aria-label="Échelle officielle"><strong>Échelle de notation</strong><div><span><b>1</b>Insuffisant</span><span><b>2</b>Médiocre</span><span><b>3</b>Passable</span><span><b>4</b>Assez bien</span><span><b>5</b>Bien</span><span><b>6</b>Très bien</span><span><b>7</b>Exceptionnel</span><span><b>N/E</b>Éléments insuffisants pour évaluer</span></div></div>
       <div id="criteria"></div>
       <section class="decision-sheet">
         <label class="general-observations">Observations générales<textarea name="observations_generales" placeholder="Synthèse de l’évaluation"></textarea></label>
@@ -53,10 +57,10 @@
           <div class="signature-pad" data-signature="direction"><strong>Direction des soins ou chef de service</strong><canvas aria-label="Zone de signature de la direction"></canvas><button type="button" class="signature-clear">Effacer</button></div>
         </div>
       </section>
-      <div id="formStatus" class="status"></div>
+      <div id="formStatus" class="status" role="status" aria-live="assertive"></div>
       <a class="btn cyan evaluation-pdf" id="pdfBtn" href="#" target="_blank" rel="noopener" hidden>Ouvrir le PDF officiel</a>
-      <div class="final-warning"><strong>Validation définitive</strong><p>Après validation, cette version et son PDF deviennent non modifiables. Une correction créera une nouvelle version.</p><label class="confirm-line"><input type="checkbox" id="confirmFinal"> Je confirme avoir relu toute l’évaluation.</label></div>
-      <div class="btnrow"><button class="btn light" id="saveBtn" type="button">Enregistrer le brouillon</button><button class="btn cyan" id="finalizeBtn" type="button" disabled>Valider et générer le PDF</button></div>
+      <div class="final-warning" id="finalConfirmation"><strong>Validation définitive</strong><p>Après validation, cette version et son PDF deviennent non modifiables. Une correction créera une nouvelle version.</p><label class="confirm-line"><input type="checkbox" id="confirmFinal"> Je confirme avoir relu toute l’évaluation.</label></div>
+      <div class="btnrow"><button class="btn light" id="saveBtn" type="button">Enregistrer le brouillon</button><button class="btn cyan" id="finalizeBtn" type="button">Valider et générer le PDF</button></div>
     </form>
   </section>
 </main>
