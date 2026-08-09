@@ -1,8 +1,122 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Situations / événements</title><link rel="stylesheet" href="style.css"></head><body>
-<header class="top"><div class="brand"><b>GHE</b> · SITUATIONS / ÉVÉNEMENTS</div><a class="home" data-agent-link="agent.html" href="suivre-agent.html">Fiche agent</a></header>
-<main class="shell"><a class="back" data-agent-link="agent.html" href="suivre-agent.html">← Retour à la fiche agent</a>
-<div id="contextStatus" class="status show warn">Chargement de l’agent…</div>
-<section class="context-card"><div><div class="kicker">Agent sélectionné</div><div class="context-name" data-agent-name>Chargement…</div><p data-agent-meta></p></div><a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Voir la fiche</a></section>
-<section class="panel empty-panel"><div class="workspace-icon" aria-hidden="true">!</div><h1>Situations / événements</h1><h2>Aucun événement enregistré</h2><p>Cet espace accueillera les situations ponctuelles liées à cet agent. La structure de saisie sera ajoutée après validation.</p></section>
-</main><script src="app.js"></script><script src="agent-context.js"></script><script>AgentContext.load().catch(()=>{});</script></body></html>
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Situations / événements</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><b>GHE</b> · SITUATIONS / ÉVÉNEMENTS</div>
+  <a class="home" data-agent-link="agent.html" href="suivre-agent.html">Fiche agent</a>
+</header>
+
+<main class="shell">
+  <a class="back" data-agent-link="agent.html" href="suivre-agent.html">← Retour à la fiche agent</a>
+  <div id="contextStatus" class="status show warn">Chargement de l’agent…</div>
+
+  <section class="context-card">
+    <div>
+      <div class="kicker">Agent sélectionné</div>
+      <div class="context-name" data-agent-name>Chargement…</div>
+      <p data-agent-meta></p>
+    </div>
+    <a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Voir la fiche</a>
+  </section>
+
+  <section class="panel">
+    <div class="kicker">Observation rapide</div>
+    <h1 class="page-title">Nouvelle situation</h1>
+    <p>Consignez un fait ponctuel lié à l’agent sélectionné.</p>
+
+    <form id="situationForm" class="form" method="post"
+      action="https://docs.google.com/forms/d/e/1FAIpQLSefNyx7HzdDw2Mq17DEVNDVOu-jWq1I-E4D9xvxOmlz_-QVFw/formResponse"
+      target="googleFormResult">
+      <input id="agentAnswer" type="hidden" name="entry.890293520" value="">
+
+      <fieldset class="impact-fieldset">
+        <legend>⚖️ Impact</legend>
+        <div class="impact-options">
+          <label class="impact-option beneficial">
+            <input type="radio" name="entry.1536926610" value="🟢 Bénéfique">
+            <span>🟢 Bénéfique</span>
+          </label>
+          <label class="impact-option neutral">
+            <input type="radio" name="entry.1536926610" value="⚪ Neutre">
+            <span>⚪ Neutre</span>
+          </label>
+          <label class="impact-option problematic">
+            <input type="radio" name="entry.1536926610" value="🔴 Problématique">
+            <span>🔴 Problématique</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <label>📍 Contexte
+        <textarea name="entry.922365674" placeholder="Dans quel contexte la situation s’est-elle produite ?"></textarea>
+      </label>
+
+      <label>🔁 Conséquence
+        <textarea name="entry.1133964165" placeholder="Quelles ont été les conséquences observées ?"></textarea>
+      </label>
+
+      <label>✏️ Fait
+        <textarea name="entry.2080031732" placeholder="Décrivez les faits de manière précise et objective."></textarea>
+      </label>
+
+      <label>Signature
+        <input type="text" name="entry.2073189400" autocomplete="name" placeholder="Nom du responsable">
+      </label>
+
+      <div id="formStatus" class="status" role="status" aria-live="polite"></div>
+      <button id="submitBtn" class="btn cyan" type="submit">Enregistrer la situation</button>
+    </form>
+
+    <iframe name="googleFormResult" id="googleFormResult" title="Confirmation d’enregistrement" hidden></iframe>
+  </section>
+</main>
+
+<script src="app.js"></script>
+<script src="agent-context.js"></script>
+<script>
+  const situationForm = document.getElementById("situationForm");
+  const submitBtn = document.getElementById("submitBtn");
+  const formStatus = document.getElementById("formStatus");
+  const resultFrame = document.getElementById("googleFormResult");
+  let submissionPending = false;
+
+  async function initializeSituationForm() {
+    await AgentContext.load();
+    const agentName = document.querySelector("[data-agent-name]").textContent.trim();
+    document.getElementById("agentAnswer").value = agentName;
+    submitBtn.disabled = !agentName || agentName === "Chargement…";
+  }
+
+  situationForm.addEventListener("submit", event => {
+    const agentName = document.getElementById("agentAnswer").value.trim();
+    if (!agentName) {
+      event.preventDefault();
+      setStatus(formStatus, "err", "Impossible d’identifier l’agent. Revenez à sa fiche puis réessayez.");
+      return;
+    }
+    submissionPending = true;
+    submitBtn.disabled = true;
+    setStatus(formStatus, "warn", "Enregistrement en cours…");
+  });
+
+  resultFrame.addEventListener("load", () => {
+    if (!submissionPending) return;
+    submissionPending = false;
+    situationForm.reset();
+    setStatus(formStatus, "ok", "✓ Situation enregistrée dans les réponses du questionnaire.");
+    submitBtn.disabled = false;
+  });
+
+  initializeSituationForm().catch(error => {
+    submitBtn.disabled = true;
+    setStatus(formStatus, "err", "Chargement impossible : " + esc(error.message));
+  });
+</script>
+</body>
+</html>
