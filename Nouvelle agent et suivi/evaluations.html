@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Évaluations</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260810-evaluations-2">
 </head>
 <body>
 <header class="top">
@@ -41,29 +41,51 @@
           <label>Responsable évaluateur *<select name="evaluateur" id="evaluatorSelect" required><option value="">Chargement des responsables…</option></select></label>
         </div>
       </section>
-      <div class="previous-evaluation-reference" id="previousEvaluationReference">
-        <button class="btn light previous-evaluation-btn" id="previousEvaluationBtn" type="button" disabled>Maintenir pour voir la dernière évaluation</button>
-        <small id="previousEvaluationHint">Recherche de la dernière évaluation validée…</small>
-      </div>
-      <div class="scale-key" aria-label="Échelle officielle"><strong>Échelle de notation</strong><div><span><b>1</b>Insuffisant</span><span><b>2</b>Médiocre</span><span><b>3</b>Passable</span><span><b>4</b>Assez bien</span><span><b>5</b>Bien</span><span><b>6</b>Très bien</span><span><b>7</b>Exceptionnel</span><span><b>N/E</b>Éléments insuffisants pour évaluer</span></div></div>
+      <section class="rating-assist" aria-labelledby="ratingGuideTitle">
+        <div class="rating-instructions">
+          <div class="section-number">Mode d’emploi</div>
+          <h3 id="ratingGuideTitle">Une réponse par critère</h3>
+          <p>Notez de <strong>1 — Insuffisant</strong> à <strong>7 — Exceptionnel</strong>. Choisissez <strong>N/E</strong> uniquement si vous ne disposez pas d’assez d’éléments pour évaluer.</p>
+        </div>
+        <div class="previous-evaluation-reference" id="previousEvaluationReference">
+          <button class="previous-evaluation-btn" id="previousEvaluationBtn" type="button" aria-describedby="previousEvaluationHint" aria-pressed="false" disabled>
+            <span class="previous-eye" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle></svg>
+            </span>
+            <span><strong id="previousEvaluationLabel">Dernière évaluation</strong><small id="previousEvaluationAction">Recherche en cours…</small></span>
+          </button>
+          <small id="previousEvaluationHint">Recherche de la dernière évaluation validée…</small>
+        </div>
+      </section>
       <div id="criteria"></div>
       <section class="decision-sheet">
-        <label class="general-observations">Observations générales<textarea name="observations_generales" placeholder="Synthèse de l’évaluation"></textarea></label>
-        <fieldset class="keep-agent"><legend>Aimeriez-vous garder cet agent ? *</legend><label><input type="radio" name="garder_agent" value="OUI" required><span>Oui</span></label><label><input type="radio" name="garder_agent" value="NON" required><span>Non</span></label></fieldset>
-        <div class="signature-date"><label>Fait à Lyon, le *<input name="lyon_le" type="date" required></label></div>
-        <div class="signature-grid" aria-label="Signatures du document officiel">
-          <div class="signature-pad" data-signature="agent"><strong>Signature de l’agent</strong><canvas aria-label="Zone de signature de l’agent"></canvas><button type="button" class="signature-clear">Effacer</button></div>
-          <div class="signature-pad" data-signature="responsable"><strong>Signature du responsable *</strong><canvas aria-label="Zone de signature du responsable"></canvas><button type="button" class="signature-clear">Effacer</button><small>Signez au doigt, au stylet ou à la souris.</small></div>
-          <div class="signature-pad" data-signature="direction"><strong>Direction des soins ou chef de service</strong><canvas aria-label="Zone de signature de la direction"></canvas><button type="button" class="signature-clear">Effacer</button></div>
+        <div class="decision-heading">
+          <div class="section-number">Conclusion</div>
+          <h3>Finaliser l’évaluation</h3>
+          <p>Ajoutez la synthèse, la décision et les signatures nécessaires au document officiel.</p>
         </div>
+        <label class="general-observations">Observations générales<textarea name="observations_generales" placeholder="Synthèse de l’évaluation"></textarea></label>
+        <div class="decision-meta">
+          <fieldset class="keep-agent"><legend>Aimeriez-vous garder cet agent ? *</legend><label><input type="radio" name="garder_agent" value="OUI" required><span>Oui</span></label><label><input type="radio" name="garder_agent" value="NON" required><span>Non</span></label></fieldset>
+          <div class="signature-date"><label>Fait à Lyon, le *<input name="lyon_le" type="date" required></label></div>
+        </div>
+        <div class="signature-grid" aria-label="Signatures du document officiel">
+          <div class="signature-pad" data-signature="agent"><div class="signature-title"><strong>Agent</strong><span>Optionnelle</span></div><canvas aria-label="Zone de signature de l’agent"></canvas><button type="button" class="signature-clear">Effacer</button></div>
+          <div class="signature-pad" data-signature="responsable"><div class="signature-title"><strong>Responsable</strong><span class="required-badge">Obligatoire</span></div><canvas aria-label="Zone de signature du responsable"></canvas><button type="button" class="signature-clear">Effacer</button></div>
+          <div class="signature-pad" data-signature="direction"><div class="signature-title"><strong>Direction ou chef de service</strong><span>Optionnelle</span></div><canvas aria-label="Zone de signature de la direction"></canvas><button type="button" class="signature-clear">Effacer</button></div>
+        </div>
+        <p class="signature-help">Signez directement au doigt, au stylet ou à la souris.</p>
       </section>
       <div id="formStatus" class="status" role="status" aria-live="assertive"></div>
       <a class="btn cyan evaluation-pdf" id="pdfBtn" href="#" target="_blank" rel="noopener" hidden>Ouvrir le PDF officiel</a>
-      <div class="final-warning" id="finalConfirmation"><strong>Validation définitive</strong><p>Après validation, cette version et son PDF deviennent non modifiables. Une correction créera une nouvelle version.</p><label class="confirm-line"><input type="checkbox" id="confirmFinal"> Je confirme avoir relu toute l’évaluation.</label></div>
+      <div class="final-warning" id="finalConfirmation">
+        <div class="final-warning-copy"><span aria-hidden="true">✓</span><div><strong>Prêt à créer le document officiel ?</strong><p>Après validation, cette version et son PDF ne seront plus modifiables.</p></div></div>
+        <label class="confirm-line"><input type="checkbox" id="confirmFinal"><span><strong>J’ai relu toute l’évaluation</strong><small>Une correction ultérieure créera une nouvelle version.</small></span></label>
+      </div>
       <div class="btnrow"><button class="btn light" id="saveBtn" type="button">Enregistrer le brouillon</button><button class="btn cyan" id="finalizeBtn" type="button">Valider et générer le PDF</button></div>
     </form>
   </section>
 </main>
-<script src="app.js"></script><script src="agent-context.js"></script><script src="evaluations.js"></script>
+<script src="app.js"></script><script src="agent-context.js"></script><script src="evaluations.js?v=20260810-evaluations-2"></script>
 </body>
 </html>
