@@ -1,0 +1,13 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Étape d’intégration</title><link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><div class="brand"><b>GHE</b> · ÉTAPE D’INTÉGRATION</div><a class="home" data-agent-link="agent.html" href="suivre-agent.html">Fiche agent</a></header>
+<main class="shell"><a class="back" data-agent-link="suivi-integration.html" href="suivre-agent.html">← Retour au suivi d’intégration</a>
+<div id="contextStatus" class="status show warn">Chargement de l’agent…</div>
+<section class="context-card"><div><div class="kicker">Agent sélectionné</div><div class="context-name" data-agent-name>Chargement…</div><p data-agent-meta></p></div><a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Voir la fiche</a></section>
+<section class="panel empty-panel"><div class="workspace-icon" aria-hidden="true">↗</div><div class="kicker">Suivi d’intégration</div><h1 id="stageName">Étape</h1><h2>Page prête, questionnaire non publié</h2><p>Cette page conserve automatiquement l’agent sélectionné. Le contenu sera ajouté uniquement après validation officielle du questionnaire.</p></section>
+</main><script src="app.js"></script><script src="agent-context.js"></script><script>
+const stages={"premier-jour":"1er jour","premiere-semaine":"1re semaine","fin-doublure":"Fin de doublure","un-mois":"1 mois","trois-mois":"3 mois","six-mois":"6 mois"};
+const stage=stages[new URLSearchParams(location.search).get("etape")];
+if(stage){q("#stageName").textContent=stage;document.title=`${stage} · Suivi d’intégration`;}else{q("#stageName").textContent="Étape non reconnue";}
+AgentContext.load().catch(()=>{});
+</script></body></html>
