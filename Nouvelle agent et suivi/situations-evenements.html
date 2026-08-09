@@ -73,6 +73,17 @@
       <button id="submitBtn" class="btn cyan" type="submit">Enregistrer la situation</button>
     </form>
 
+    <section id="successCard" class="submission-success" hidden tabindex="-1">
+      <div class="success-check" aria-hidden="true">✓</div>
+      <div class="kicker">Enregistrement terminé</div>
+      <h2>Situation enregistrée</h2>
+      <p>La situation concernant <strong id="successAgentName"></strong> a bien été ajoutée aux réponses du questionnaire.</p>
+      <div class="btnrow">
+        <button id="newSituationBtn" class="btn cyan" type="button">＋ Ajouter une autre situation</button>
+        <a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Retour à la fiche agent</a>
+      </div>
+    </section>
+
     <iframe name="googleFormResult" id="googleFormResult" title="Confirmation d’enregistrement" hidden></iframe>
   </section>
 </main>
@@ -84,6 +95,8 @@
   const submitBtn = document.getElementById("submitBtn");
   const formStatus = document.getElementById("formStatus");
   const resultFrame = document.getElementById("googleFormResult");
+  const successCard = document.getElementById("successCard");
+  const newSituationBtn = document.getElementById("newSituationBtn");
   let submissionPending = false;
 
   async function initializeSituationForm() {
@@ -108,9 +121,22 @@
   resultFrame.addEventListener("load", () => {
     if (!submissionPending) return;
     submissionPending = false;
+    document.getElementById("successAgentName").textContent = document.getElementById("agentAnswer").value;
     situationForm.reset();
-    setStatus(formStatus, "ok", "✓ Situation enregistrée dans les réponses du questionnaire.");
+    situationForm.hidden = true;
+    successCard.hidden = false;
+    successCard.focus({preventScroll:true});
+    successCard.scrollIntoView({behavior:"smooth", block:"center"});
+  });
+
+  newSituationBtn.addEventListener("click", () => {
+    successCard.hidden = true;
+    situationForm.hidden = false;
+    formStatus.className = "status";
+    formStatus.textContent = "";
     submitBtn.disabled = false;
+    situationForm.scrollIntoView({behavior:"smooth", block:"start"});
+    setTimeout(() => situationForm.querySelector('input[type="radio"]').focus(), 350);
   });
 
   initializeSituationForm().catch(error => {
