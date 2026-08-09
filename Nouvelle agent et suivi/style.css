@@ -87,6 +87,12 @@ textarea{min-height:120px;resize:vertical}
 .impact-fieldset .impact-option.beneficial:has(input:checked){background:#e8f7ef;border-color:#178354;box-shadow:0 0 0 1px #178354}
 .impact-fieldset .impact-option.neutral:has(input:checked){background:#edf3f6;border-color:#687984;box-shadow:0 0 0 1px #687984}
 .impact-fieldset .impact-option.problematic:has(input:checked){background:#fff0f0;border-color:#b83b3b;box-shadow:0 0 0 1px #b83b3b}
+.submission-success{text-align:center;padding:36px 20px 18px;outline:0}
+.submission-success[hidden]{display:none}
+.submission-success .success-check{width:70px;height:70px;margin:0 auto 18px;display:grid;place-items:center;border-radius:50%;background:#e8f7ef;color:var(--green);font-size:40px;font-weight:900}
+.submission-success h2{font-size:clamp(30px,5vw,44px);margin:10px 0}
+.submission-success p{max-width:620px;margin:0 auto 25px}
+.submission-success .btnrow{max-width:680px;margin:0 auto}
 @media(max-width:700px){
  .actions,.details,.steps,.stage-list{grid-template-columns:1fr}.hero,.panel{padding:22px}.shell{padding-top:20px}
  .brand{font-size:18px}.searchbox{display:grid}.agent-head{display:block}
