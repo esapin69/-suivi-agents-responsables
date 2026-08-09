@@ -8,23 +8,21 @@ const EVALUATION_SECTIONS = [
 const LEVELS=["Insuffisant","Médiocre","Passable","Assez bien","Bien","Très bien","Exceptionnel","Éléments insuffisants pour évaluer"];
 const LEVEL_SHORT_LABELS=["Insuffisant","Médiocre","Passable","Assez bien","Bien","Très bien","Exceptionnel","Non évaluable"];
 const slug=s=>String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"").toLowerCase();
-const state={agent:null,evaluations:[],lastValidated:null,locked:false,signatures:{},responsables:[]};
+const state={agent:null,evaluations:[],lastValidated:null,previousAnswersVisible:false,locked:false,signatures:{},responsables:[]};
 const el=id=>document.getElementById(id);
 
 function renderCriteria(){
   el("criteria").innerHTML=EVALUATION_SECTIONS.map(section=>{
     const [sectionNumber,...sectionTitleParts]=section.title.split(" — ");
     const sectionTitle=sectionTitleParts.join(" — ");
-    const scale=LEVELS.map((level,i)=>`<span class="${i===7?"not-evaluable-scale":""}"><b>${i===7?"N/E":i+1}</b><small>${esc(LEVEL_SHORT_LABELS[i])}</small></span>`).join("");
     const criteria=section.criteria.map(label=>{
       const name="critere_"+slug(label);
       const choices=LEVELS.map((level,i)=>{
-        const code=i===7?"N/E":String(i+1);
-        return `<label class="${i===7?"not-evaluable-option":""}" title="${esc(level)}"><input type="radio" name="${name}" value="${esc(level)}" aria-label="${esc(code+" — "+level)}" required><span><b>${code}</b><small>${esc(LEVEL_SHORT_LABELS[i])}</small></span></label>`;
+        return `<label class="${i===7?"not-evaluable-option":""}" title="${esc(level)}"><input type="radio" name="${name}" value="${esc(level)}" aria-label="${esc(level)}" required><span>${esc(LEVEL_SHORT_LABELS[i])}</span></label>`;
       }).join("");
       return `<div class="criterion"><div class="criterion-label">${esc(label)} <span aria-hidden="true">*</span></div><div class="level-options" role="radiogroup" aria-label="${esc(label)}">${choices}</div></div>`;
     }).join("");
-    return `<fieldset class="evaluation-section"><legend><span>${esc(sectionNumber)}</span><strong>${esc(sectionTitle)}</strong></legend><div class="criteria-table"><div class="criteria-scale" aria-hidden="true"><span class="criteria-scale-title">Critère</span><div class="level-scale">${scale}</div></div>${criteria}</div><label class="section-observation">Observations<textarea name="${section.observation}" placeholder="Faits observés, exemples ou commentaire (facultatif)"></textarea></label></fieldset>`;
+    return `<fieldset class="evaluation-section"><legend><span>${esc(sectionNumber)}</span><strong>${esc(sectionTitle)}</strong></legend><div class="criteria-table">${criteria}</div><label class="section-observation">Observations<textarea name="${section.observation}" placeholder="Faits observés, exemples ou commentaire (facultatif)"></textarea></label></fieldset>`;
   }).join("");
 }
 function today(){const parts=Object.fromEntries(new Intl.DateTimeFormat("fr-FR",{timeZone:"Europe/Paris",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()).map(part=>[part.type,part.value]));return `${parts.year}-${parts.month}-${parts.day}`}
@@ -34,10 +32,12 @@ function resetForm(){state.locked=false;el("evaluationForm").reset();clearValida
 function lockForm(value){state.locked=value;hidePreviousAnswers();el("evaluationForm").querySelectorAll("input,textarea,select").forEach(x=>{if(x.id!=="confirmFinal")x.disabled=value});el("saveBtn").hidden=value;el("finalizeBtn").hidden=value;el("confirmFinal").closest(".final-warning").hidden=value;el("previousEvaluationReference").hidden=value;updatePreviousEvaluationButton()}
 function fillForm(ev){resetForm();const f=el("evaluationForm").elements;if(ev.evaluateur&&![...f.evaluateur.options].some(o=>o.value===ev.evaluateur))f.evaluateur.add(new Option(ev.evaluateur,ev.evaluateur));["id_evaluation","grade","service","date_evaluation","evaluateur","lyon_le","garder_agent","observations_1","observations_2","observations_3","observations_4","observations_5","observations_generales"].forEach(k=>{if(f[k])f[k].value=ev[k]||""});Object.entries(ev.criteres||{}).forEach(([label,value])=>{const radio=document.querySelector(`[name="critere_${slug(label)}"][value="${CSS.escape(value)}"]`);if(radio)radio.checked=true});el("formKicker").textContent=ev.statut==="VALIDE"?"Version officielle":"Brouillon";el("formTitle").textContent=`${ev.id_evaluation} · version ${ev.version}`;if(ev.url_document){el("pdfBtn").href=ev.url_document;el("pdfBtn").hidden=false}lockForm(ev.statut==="VALIDE")}
 function renderList(){const box=el("evaluationList");if(!state.evaluations.length){box.innerHTML='<div class="empty">Aucune évaluation. Créez le premier brouillon.</div>';return}box.innerHTML=state.evaluations.map(ev=>`<button class="evaluation-row" data-id="${esc(ev.id_evaluation)}" type="button"><span><strong>${esc(displayDate(ev.date_evaluation))}</strong><small>${esc(ev.evaluateur||"Évaluateur non renseigné")}</small></span><span class="badge ${ev.statut==="VALIDE"?"verifie":"provisoire"}">${esc(ev.statut)} · v${esc(ev.version)}</span></button>`).join("");box.querySelectorAll("button").forEach(b=>b.onclick=()=>openEvaluation(b.dataset.id))}
-function paintPreviousEvaluationButton(active=false){const button=el("previousEvaluationBtn"),label=el("previousEvaluationLabel"),action=el("previousEvaluationAction");if(!button)return;button.classList.toggle("is-held",active);button.setAttribute("aria-pressed",String(active));label.textContent=active?"Comparaison affichée":"Dernière évaluation";action.textContent=active?"Relâchez pour masquer":state.lastValidated?"Maintenir pour afficher":"Indisponible"}
-function updatePreviousEvaluationButton(){const button=el("previousEvaluationBtn"),hint=el("previousEvaluationHint"),ev=state.lastValidated;button.disabled=state.locked||!ev;button.removeAttribute("aria-busy");if(ev){hint.textContent=`Validée le ${displayDate(ev.date_evaluation)} · version ${ev.version}`}else{hint.textContent="Aucune évaluation validée pour cet agent."}paintPreviousEvaluationButton(false)}
-function hidePreviousAnswers(){document.querySelectorAll(".previous-choice").forEach(node=>node.classList.remove("previous-choice"));paintPreviousEvaluationButton(false)}
-function showPreviousAnswers(){if(state.locked||!state.lastValidated)return;hidePreviousAnswers();Object.entries(state.lastValidated.criteres||{}).forEach(([label,value])=>{const input=document.querySelector(`[name="critere_${slug(label)}"][value="${CSS.escape(value)}"]`);input?.nextElementSibling?.classList.add("previous-choice")});paintPreviousEvaluationButton(true)}
+function clearPreviousAnswerMarkers(){document.querySelectorAll(".previous-choice").forEach(node=>node.classList.remove("previous-choice"))}
+function paintPreviousEvaluationButton(active=state.previousAnswersVisible){const button=el("previousEvaluationBtn"),label=el("previousEvaluationLabel"),action=el("previousEvaluationAction");if(!button)return;button.classList.toggle("is-active",active);button.setAttribute("aria-pressed",String(active));label.textContent=active?"Masquer la dernière évaluation":"Afficher la dernière évaluation";action.textContent=active?"Les anciens choix sont entourés en gris":state.lastValidated?"Un clic pour comparer":"Indisponible"}
+function updatePreviousEvaluationButton(){const button=el("previousEvaluationBtn"),hint=el("previousEvaluationHint"),ev=state.lastValidated;button.disabled=state.locked||!ev;button.removeAttribute("aria-busy");state.previousAnswersVisible=false;clearPreviousAnswerMarkers();if(ev){hint.textContent=`Validée le ${displayDate(ev.date_evaluation)} · version ${ev.version}`}else{hint.textContent="Aucune évaluation validée pour cet agent."}paintPreviousEvaluationButton(false)}
+function hidePreviousAnswers(){state.previousAnswersVisible=false;clearPreviousAnswerMarkers();paintPreviousEvaluationButton(false)}
+function showPreviousAnswers(){if(state.locked||!state.lastValidated)return;clearPreviousAnswerMarkers();Object.entries(state.lastValidated.criteres||{}).forEach(([label,value])=>{const input=document.querySelector(`[name="critere_${slug(label)}"][value="${CSS.escape(value)}"]`);input?.nextElementSibling?.classList.add("previous-choice")});state.previousAnswersVisible=true;paintPreviousEvaluationButton(true)}
+function togglePreviousAnswers(){if(state.previousAnswersVisible)hidePreviousAnswers();else showPreviousAnswers()}
 async function loadList(){setStatus(el("listStatus"),"warn","Chargement des évaluations…");try{const d=await apiGet("listEvaluations",{id:AgentContext.id});state.evaluations=d.evaluations||[];state.lastValidated=state.evaluations.filter(ev=>ev.statut==="VALIDE").sort((a,b)=>Number(b.version)-Number(a.version))[0]||null;renderList();updatePreviousEvaluationButton();el("listStatus").className="status"}catch(e){setStatus(el("listStatus"),"err",esc(e.message))}}
 async function openEvaluation(id){setStatus(el("formStatus"),"warn","Chargement…");showFormPanel();try{const d=await apiGet("getEvaluation",{id});fillForm(d.evaluation);el("formPanel").scrollIntoView({behavior:"smooth"})}catch(e){setStatus(el("formStatus"),"err",esc(e.message))}}
 function clearValidationErrors(){document.querySelectorAll(".validation-error").forEach(node=>node.classList.remove("validation-error"));document.querySelectorAll("[aria-invalid='true']").forEach(node=>node.removeAttribute("aria-invalid"))}
@@ -57,10 +57,7 @@ document.addEventListener("DOMContentLoaded",async()=>{
   setupSignatures();
   const previousBtn=el("previousEvaluationBtn");
   previousBtn.setAttribute("aria-busy","true");
-  previousBtn.addEventListener("pointerdown",e=>{if(previousBtn.disabled)return;e.preventDefault();previousBtn.setPointerCapture?.(e.pointerId);showPreviousAnswers()});
-  ["pointerup","pointercancel","pointerleave","lostpointercapture","blur"].forEach(event=>previousBtn.addEventListener(event,hidePreviousAnswers));
-  previousBtn.addEventListener("keydown",e=>{if((e.key===" "||e.key==="Enter")&&!e.repeat){e.preventDefault();showPreviousAnswers()}});
-  previousBtn.addEventListener("keyup",e=>{if(e.key===" "||e.key==="Enter")hidePreviousAnswers()});
+  previousBtn.addEventListener("click",togglePreviousAnswers);
   await loadResponsables();
   try{state.agent=await AgentContext.load();await loadList()}catch(_){}
   el("newBtn").onclick=()=>{resetForm();showFormPanel();el("formPanel").scrollIntoView({behavior:"smooth"})};
