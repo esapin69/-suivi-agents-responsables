@@ -38,7 +38,7 @@
           <label>Grade *<input name="grade" required autocomplete="organization-title" placeholder="Grade de l’agent"></label>
           <label>Service *<input name="service" required value="STIP"></label>
           <label>Date de l’évaluation *<input name="date_evaluation" type="date" required></label>
-          <label>Responsable évaluateur *<input name="evaluateur" required autocomplete="name" placeholder="Nom et prénom"></label>
+          <label>Responsable évaluateur *<select name="evaluateur" id="evaluatorSelect" required><option value="">Chargement des responsables…</option></select></label>
         </div>
       </section>
       <div class="scale-key" aria-label="Échelle officielle"><strong>Échelle de notation</strong><div><span><b>1</b>Insuffisant</span><span><b>2</b>Médiocre</span><span><b>3</b>Passable</span><span><b>4</b>Assez bien</span><span><b>5</b>Bien</span><span><b>6</b>Très bien</span><span><b>7</b>Exceptionnel</span></div></div>
@@ -47,7 +47,11 @@
         <label class="general-observations">Observations générales<textarea name="observations_generales" placeholder="Synthèse de l’évaluation"></textarea></label>
         <fieldset class="keep-agent"><legend>Aimeriez-vous garder cet agent ? *</legend><label><input type="radio" name="garder_agent" value="OUI" required><span>Oui</span></label><label><input type="radio" name="garder_agent" value="NON" required><span>Non</span></label></fieldset>
         <div class="signature-date"><label>Fait à Lyon, le *<input name="lyon_le" type="date" required></label></div>
-        <div class="signature-grid" aria-label="Signatures prévues sur le document officiel"><div><strong>Signature de l’agent</strong><small>Sur le document officiel</small></div><div><strong>Signature du responsable</strong><small>Responsable évaluateur indiqué ci-dessus</small></div><div><strong>Direction des soins ou chef de service</strong><small>Sur le document officiel</small></div></div>
+        <div class="signature-grid" aria-label="Signatures du document officiel">
+          <div class="signature-pad" data-signature="agent"><strong>Signature de l’agent</strong><canvas aria-label="Zone de signature de l’agent"></canvas><button type="button" class="signature-clear">Effacer</button></div>
+          <div class="signature-pad" data-signature="responsable"><strong>Signature du responsable *</strong><canvas aria-label="Zone de signature du responsable"></canvas><button type="button" class="signature-clear">Effacer</button><small>Signez au doigt, au stylet ou à la souris.</small></div>
+          <div class="signature-pad" data-signature="direction"><strong>Direction des soins ou chef de service</strong><canvas aria-label="Zone de signature de la direction"></canvas><button type="button" class="signature-clear">Effacer</button></div>
+        </div>
       </section>
       <div id="formStatus" class="status"></div>
       <a class="btn cyan evaluation-pdf" id="pdfBtn" href="#" target="_blank" rel="noopener" hidden>Ouvrir le PDF officiel</a>
