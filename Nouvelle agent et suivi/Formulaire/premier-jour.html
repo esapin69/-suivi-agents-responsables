@@ -1,6 +1,66 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>1er jour</title><link rel="stylesheet" href="../style.css"></head><body>
-<header class="top"><div class="brand"><b>GHE</b> · 1ER JOUR</div><a class="home" href="../suivre-agent.html">Agents</a></header>
-<main class="shell"><a class="back" href="javascript:history.back()">← Retour</a>
-<section class="hero"><div class="kicker">Formulaire de suivi</div><h1>1er jour</h1><p>Cette page est conservée dans le dossier Formulaire. Le branchement de ses questions au dossier individuel sera la prochaine étape, sans toucher au moteur agent qui fonctionne séparément.</p></section>
-</main></body></html>
+<title>1er jour</title><link rel="stylesheet" href="../style.css">
+<style>
+.progress-wrap{position:sticky;top:70px;z-index:15;background:#edf3f6;padding:10px 0 12px}
+.progress-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 16px;box-shadow:0 6px 20px rgba(20,51,64,.06)}
+.progress-top{display:flex;justify-content:space-between;gap:12px;font-weight:900}
+.bar{height:9px;background:#dfe9ed;border-radius:999px;overflow:hidden;margin-top:9px}.bar i{display:block;height:100%;width:0;background:var(--cyan2);transition:.2s}
+.item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;margin:12px 0}
+.item.done{border-left:5px solid var(--green)}.item h3{font-size:17px;line-height:1.42;margin:0 0 15px}
+.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.role{border:1px solid #b9c9d1;border-radius:9px;padding:11px 8px;text-align:center;font-weight:800;cursor:pointer;background:#fff}
+.role input{display:none}.role.on{background:#e5f7fb;border-color:var(--cyan2);color:#076b86}
+.obs-toggle{border:0;background:none;color:var(--cyan2);font-weight:850;padding:13px 0 5px;cursor:pointer}
+.obs{display:none;margin-top:8px}.obs.show{display:block}
+.validation{background:#fff;border:1px solid var(--line);border-top:6px solid var(--cyan);border-radius:15px;padding:24px;margin-top:22px}
+.savebar{position:sticky;bottom:0;background:rgba(237,243,246,.96);backdrop-filter:blur(8px);padding:12px 0;z-index:20}
+.savebar .btnrow{max-width:980px;margin:auto}
+.smallstate{font-size:13px;color:var(--muted);margin-top:7px}
+@media(max-width:650px){.roles{grid-template-columns:1fr 1fr 1fr}.role{font-size:12px;padding:10px 3px}}
+</style></head><body>
+<header class="top"><div class="brand"><b>GHE</b> · 1ER JOUR</div><a class="home" id="backAgent" href="../suivre-agent.html">Fiche agent</a></header>
+<main class="shell"><a class="back" id="backAgent2" href="../suivre-agent.html">← Retour à la fiche agent</a>
+<section class="hero"><div class="kicker">Accueil et immersion</div><h1>1er jour</h1><p>Découvrir le STIP, son organisation, ses équipes, ses locaux et les règles essentielles de fonctionnement.</p><p id="agentName"><strong>Chargement de l’agent…</strong></p></section>
+<div class="progress-wrap"><div class="progress-card"><div class="progress-top"><span id="count">0 / 24 étapes</span><span id="state">À faire</span></div><div class="bar"><i id="bar"></i></div><div class="smallstate" id="saved"></div></div></div>
+<div id="status" class="status"></div><section id="items"></section>
+<section class="validation"><div class="kicker">Validation du 1er jour</div><h2>Clôturer l’étape</h2>
+<p>La validation finale n’est possible que lorsque les 24 étapes ont au moins un intervenant renseigné.</p>
+<div class="form"><label>Chef d’équipe – nom et prénom<input id="chefNom"></label><label>Date<input id="dateValidation" type="date"></label></div>
+</section>
+<div class="savebar"><div class="btnrow"><button class="btn light" id="saveDraft">Enregistrer le brouillon</button><button class="btn cyan" id="finalize">Terminer le 1er jour</button></div></div>
+</main><script src="../app.js"></script><script>
+const labels=["Accueil du nouvel arrivant et présentation du déroulement de la journée", "Présentation du STIP : missions, fonctionnement et rôle dans le parcours du patient", "Présentation de l’organigramme : cadre supérieur de santé, cadre de santé, chefs d’équipe et brancardiers", "Présentation du tuteur et des membres de l’équipe", "Présentation et explication de la fiche de poste du brancardier", "Présentation du planning de doublure et des horaires de travail", "Présentation des modalités de prise et de fin de poste, des pauses et des transmissions", "Attribution du vestiaire et rappel des règles relatives à la tenue professionnelle", "Remise ou vérification du badge, des accès et du téléphone professionnel si nécessaire", "Visite des locaux du STIP : bureaux, salle de pause, sanitaires et DAV", "Présentation du matériel de transport : lits, brancards, fauteuils roulants et mobilités", "Visite des principaux secteurs : HFME, Hôpital Louis Pradel (cardiologie) et Hôpital Pierre Wertheimer (neurologie)", "Repérage des principaux circuits de transport et des secteurs spécifiques : ascenseurs, accès prioritaires, bloc gynécologique de l’HFME, héliport, CERMEP et funérarium", "Présentation des outils : CHRONOS et moyens de communication", "Repérage du classeur « Gazette », qui regroupe l’ensemble des procédures du service, et présentation de son contenu", "Présentation des règles d’identitovigilance : faire décliner au patient son nom, son prénom et sa date de naissance ; contrôler le bracelet, la demande de transport et la destination", "Rappel des règles d’hygiène : hygiène des mains, précautions standard, EPI et nettoyage du matériel", "Rappel des règles de sécurité : freins, barrières, allure adaptée et signalement du matériel défectueux", "Rappel de la confidentialité, du secret professionnel et du respect de la dignité du patient", "Temps d’échange : questions du nouvel arrivant, reformulation des consignes et validation de la compréhension", "Au départ : se présenter auprès de l’équipe soignante du service de départ, l’informer de la prise en charge du patient et préciser sa destination", "Auprès du patient : se présenter, lui expliquer la prise en charge et préciser le déroulement du transport", "À l’arrivée dans le service destinataire : transmettre à l’équipe soignante les informations utiles à la continuité de la prise en charge", "Lors du retour dans l’unité : informer l’équipe soignante que le patient a été raccompagné et réinstallé en sécurité"];
+const id=new URL(location.href).searchParams.get("id");
+let data={items:labels.map(()=>({cadre:false,chef:false,tuteur:false,observation:""})),statut:"A_FAIRE"};
+const itemsEl=q("#items"),status=q("#status");
+function renderItems(){
+ itemsEl.innerHTML=labels.map((label,i)=>{const x=data.items[i]||{};return `<article class="item ${x.cadre||x.chef||x.tuteur?"done":""}" data-i="${i}"><h3>${i+1}. ${esc(label)}</h3><div class="roles">
+ <label class="role ${x.cadre?"on":""}"><input type="checkbox" data-k="cadre" ${x.cadre?"checked":""}>Cadre</label>
+ <label class="role ${x.chef?"on":""}"><input type="checkbox" data-k="chef" ${x.chef?"checked":""}>Chef</label>
+ <label class="role ${x.tuteur?"on":""}"><input type="checkbox" data-k="tuteur" ${x.tuteur?"checked":""}>Tuteur</label></div>
+ <button class="obs-toggle" type="button">${x.observation?"Observation renseignée":"＋ Ajouter une observation"}</button>
+ <textarea class="obs ${x.observation?"show":""}" placeholder="Observation / commentaire">${esc(x.observation||"")}</textarea></article>`}).join("");
+ itemsEl.querySelectorAll(".role").forEach(el=>el.onclick=()=>{const art=el.closest(".item"),i=+art.dataset.i,inp=el.querySelector("input");setTimeout(()=>{data.items[i][inp.dataset.k]=inp.checked;renderItems();updateProgress();},0);});
+ itemsEl.querySelectorAll(".obs-toggle").forEach(el=>el.onclick=()=>el.parentElement.querySelector(".obs").classList.toggle("show"));
+ itemsEl.querySelectorAll(".obs").forEach(el=>el.oninput=()=>{data.items[+el.closest(".item").dataset.i].observation=el.value;});
+}
+function updateProgress(){
+ const n=data.items.filter(x=>x.cadre||x.chef||x.tuteur).length;
+ q("#count").textContent=`${n} / 24 étapes`;q("#bar").style.width=`${n/24*100}%`;
+ q("#state").textContent=data.statut==="TERMINE"?"Terminé":(n?"Brouillon":"À faire");
+ q("#finalize").disabled=n!==24;
+}
+function payload(finalize){return {id_agent:id,items:data.items,chef_nom:q("#chefNom").value,date_validation:q("#dateValidation").value,finalize};}
+async function save(finalize){
+ setStatus(status,"warn",finalize?"Validation et vérification en cours…":"Enregistrement du brouillon…");
+ try{const d=await apiPost("saveFirstDay",payload(finalize));if(!d.ok){setStatus(status,"err",esc(d.message||d.code));return;}data=d.first_day;q("#chefNom").value=data.chef_nom||"";q("#dateValidation").value=data.date_validation||"";renderItems();updateProgress();setStatus(status,"ok","✓ "+esc(d.message));q("#saved").textContent="Dernière sauvegarde vérifiée."}
+ catch(e){setStatus(status,"err","Échec : "+esc(e.message));}
+}
+async function load(){
+ if(!id){setStatus(status,"err","Agent non identifié. Ouvre ce formulaire depuis sa fiche.");return;}
+ q("#backAgent").href=q("#backAgent2").href=`../agent.html?id=${encodeURIComponent(id)}`;
+ try{const [a,f]=await Promise.all([apiGet("getAgent",{id}),apiGet("getFirstDay",{id})]);q("#agentName").innerHTML=`Agent : <strong>${esc(a.agent.nom)} ${esc(a.agent.prenom)}</strong>`;data=f.first_day;q("#chefNom").value=data.chef_nom||"";q("#dateValidation").value=data.date_validation||"";renderItems();updateProgress();if(data.modified_at)q("#saved").textContent="Suivi déjà enregistré : tu peux le modifier."}
+ catch(e){setStatus(status,"err","Impossible de charger le suivi : "+esc(e.message));}
+}
+q("#saveDraft").onclick=()=>save(false);q("#finalize").onclick=()=>save(true);renderItems();updateProgress();load();
+</script></body></html>
