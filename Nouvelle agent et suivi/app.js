@@ -1,5 +1,5 @@
 
-const API_URL = "https://suivi-agents-api.eddy-sapin.workers.dev";
+const API_URL = "https://api.responsable.esapin.com";
 let authLoaderPromise = null;
 
 function ensureResponsibleAuth() {
@@ -36,14 +36,14 @@ async function apiGet(action, params = {}) {
 }
 
 async function apiPost(action, payload) {
-  const responsible = await requireResponsibleSession();
+  await requireResponsibleSession();
   const url = new URL(API_URL + "/");
   url.searchParams.set("action", action);
   const r = await fetch(url.toString(), {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     credentials:"include",
-    body:JSON.stringify({...payload, action, id_responsable:responsible.id_responsable})
+    body:JSON.stringify({...payload, action})
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data.message || data.code || "Erreur serveur");
