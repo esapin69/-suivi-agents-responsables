@@ -1,5 +1,5 @@
 (() => {
-  const API_URL = "https://suivi-agents-api.eddy-sapin.workers.dev";
+  const API_URL = "https://api.responsable.esapin.com";
   let currentUser = null;
   let resolveReady;
   const ready = new Promise(r => { resolveReady = r; });
@@ -39,7 +39,7 @@
   }
   function unlock() {
     document.documentElement.classList.remove("auth-locked");
-    const g = gate(); g.hidden = true;
+    gate().hidden = true;
     renderChip();
   }
   function renderChip() {
