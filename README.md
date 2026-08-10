@@ -4,19 +4,19 @@ Site interne de suivi de l’intégration des nouveaux agents, publié sur `resp
 
 ## Accès
 
-- La connexion utilise uniquement un code personnel de six chiffres, enregistré dans l’annuaire privé puis synchronisé dans le secret Cloudflare `ACCESS_DIRECTORY_JSON` lors de la publication.
+- La connexion utilise uniquement un code personnel de six chiffres lu directement dans l’onglet `Annuaire` du fichier source Google Sheets.
 - Les quatre chefs et l’administrateur Eddy Sapin sont autorisés.
+- Une cellule vide n’autorise aucun accès ; un code présent devient utilisable immédiatement.
 - Les codes doivent être uniques. Un code dupliqué est refusé.
-- La suppression ou la modification d’un code, suivie de la synchronisation du secret, invalide aussi les sessions déjà ouvertes avec l’ancien code.
-- Aucun e-mail et aucun code d’accès ne doivent être ajoutés au dépôt.
+- Modifier ou supprimer un code dans le Sheet invalide l’ancien accès et les sessions correspondantes lors de leur prochaine validation.
+- Aucun e-mail et aucun code d’accès ne doivent être ajoutés au dépôt GitHub ni copiés dans Cloudflare.
 
 ## Architecture
 
 - Le site statique `responsable.esapin.com` affiche la connexion et les écrans de suivi.
 - Le Worker Cloudflare `suivi-agents-api`, exposé sur `responsable-api.esapin.com`, contrôle l’origine, limite les tentatives, signe les sessions dans un cookie sécurisé et protège toutes les actions de lecture et d’écriture.
-- Le Worker conserve les identités autorisées et leurs codes dans le secret chiffré `ACCESS_DIRECTORY_JSON`, jamais dans le dépôt.
-- Apps Script écrit dans les feuilles et documents Google.
-- Les situations passent par l’action sécurisée Apps Script lorsqu’elle est disponible ; le Worker garde une compatibilité serveur avec l’ancien formulaire Google tant que nécessaire.
+- Le Worker délègue l’authentification et la revalidation des sessions à Apps Script, qui lit directement l’onglet `Annuaire` du Google Sheet.
+- Apps Script écrit dans les feuilles et documents Google et impose l’identité du responsable connecté pour les écritures concernées.
 
 ## Fonctionnalités
 
@@ -33,4 +33,4 @@ npm test --prefix backend
 ./backend/node_modules/.bin/tsc --noEmit -p backend/tsconfig.json
 ```
 
-L’ordre de publication est impératif : synchroniser `ACCESS_DIRECTORY_JSON`, publier le Worker sur `responsable-api.esapin.com`, tester l’API, puis publier le site statique. Les valeurs `API_KEY`, `APPS_SCRIPT_KEY`, `APPS_SCRIPT_URL`, `SESSION_SECRET` et `ACCESS_DIRECTORY_JSON` restent dans les propriétés ou secrets des services et ne sont jamais versionnées.
+L’ordre de publication est impératif : publier la version Apps Script qui contient `authenticateAccess` et `authorizeAccess`, publier le Worker sur `responsable-api.esapin.com`, tester l’API et la connexion, puis publier le site statique. Les valeurs `API_KEY`, `APPS_SCRIPT_KEY`, `APPS_SCRIPT_URL` et `SESSION_SECRET` restent dans les propriétés ou secrets des services et ne sont jamais versionnées.
