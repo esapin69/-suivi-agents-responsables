@@ -1,5 +1,5 @@
 
-const API_URL = "https://api.responsable.esapin.com";
+const API_URL = "https://responsable-api.esapin.com";
 let authLoaderPromise = null;
 
 function ensureResponsibleAuth() {
