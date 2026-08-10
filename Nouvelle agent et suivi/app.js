@@ -1,24 +1,34 @@
 
 const API_URL = "https://suivi-agents-api.eddy-sapin.workers.dev";
 
+async function requireResponsibleSession() {
+  if (!window.ResponsableAuth) throw new Error("Authentification indisponible");
+  const user = await window.ResponsableAuth.require();
+  if (!user) throw new Error("Authentification requise");
+  return user;
+}
+
 async function apiGet(action, params = {}) {
+  await requireResponsibleSession();
   const url = new URL(API_URL + "/");
   url.searchParams.set("action", action);
   for (const [k,v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
   }
-  const r = await fetch(url.toString(), { method:"GET", cache:"no-store" });
+  const r = await fetch(url.toString(), { method:"GET", cache:"no-store", credentials:"include" });
   const data = await r.json();
   if (!r.ok) throw new Error(data.message || data.code || "Erreur serveur");
   return data;
 }
 
 async function apiPost(action, payload) {
+  await requireResponsibleSession();
   const url = new URL(API_URL + "/");
   url.searchParams.set("action", action);
   const r = await fetch(url.toString(), {
     method:"POST",
     headers:{"Content-Type":"application/json"},
+    credentials:"include",
     body:JSON.stringify({...payload, action})
   });
   const data = await r.json();
