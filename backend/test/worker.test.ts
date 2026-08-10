@@ -39,7 +39,7 @@ function request(action: string, init: RequestInit = {}): Request {
   const headers = new Headers(init.headers);
   headers.set("Origin", allowedOrigin);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  return new Request(`https://api.responsable.esapin.com/?action=${action}`, { ...init, headers });
+  return new Request(`https://responsable-api.esapin.com/?action=${action}`, { ...init, headers });
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -54,7 +54,7 @@ describe("authentication gateway", () => {
   it("rejects an untrusted origin before contacting the data service", async () => {
     const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);
-    const bad = new Request("https://api.responsable.esapin.com/?action=login", {
+    const bad = new Request("https://responsable-api.esapin.com/?action=login", {
       method: "POST",
       headers: { Origin: "https://example.org", "Content-Type": "application/json" },
       body: JSON.stringify({ code: "123456" }),
@@ -160,7 +160,7 @@ describe("authentication gateway", () => {
   it("answers health checks without depending on the legacy Apps Script action", async () => {
     const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);
-    const response = await worker.fetch(new Request("https://api.responsable.esapin.com/?action=health"), env());
+    const response = await worker.fetch(new Request("https://responsable-api.esapin.com/?action=health"), env());
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ ok: true, service: "suivi-agents" });
     expect(upstream).not.toHaveBeenCalled();
