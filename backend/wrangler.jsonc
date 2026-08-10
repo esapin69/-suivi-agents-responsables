@@ -7,8 +7,8 @@
   "workers_dev": false,
   "routes": [
     {
-      "pattern": "api.responsable.esapin.com",
-      "custom_domain": true
+      "pattern": "responsable-api.esapin.com/*",
+      "zone_name": "esapin.com"
     }
   ],
   "ratelimits": [
