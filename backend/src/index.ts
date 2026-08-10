@@ -3,6 +3,8 @@ const SESSION_COOKIE = "__Host-ghe_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const MAX_BODY_BYTES = 250_000;
 const MAX_LOGIN_BODY_BYTES = 2_000;
+const LEGACY_SITUATION_FORM_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLSefNyx7HzdDw2Mq17DEVNDVOu-jWq1I-E4D9xvxOmlz_-QVFw/formResponse";
 
 const GET_ACTIONS = new Set([
   "listAgents",
@@ -36,6 +38,10 @@ type SessionPayload = AuthUser & {
   iat: number;
   exp: number;
   version: 1;
+};
+
+type AccessEntry = AuthUser & {
+  code: string;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -73,8 +79,11 @@ export default {
         if (request.method !== "GET") {
           return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
         }
-        const health = await callAppsScript(env, "GET", "health", {}, {});
-        return apiJson(health, 200, origin);
+        return apiJson(
+          { ok: true, service: "suivi-agents", time: new Date().toISOString() },
+          200,
+          origin,
+        );
       }
 
       if (action === "login") {
@@ -106,23 +115,13 @@ export default {
           { "Set-Cookie": clearSessionCookie() },
         );
       }
+      const principal = await authorizedPrincipal(session, env);
 
       if (action === "session") {
         if (request.method !== "GET") {
           return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
         }
-        const result = await callAppsScript(
-          env,
-          "GET",
-          "authorizeAccess",
-          {},
-          {
-            auth_user_id: session.id,
-            auth_session_version: session.access_version,
-          },
-        );
-        const user = validateAuthUser(result.user);
-        return apiJson({ ok: true, user }, 200, origin);
+        return apiJson({ ok: true, user: principal }, 200, origin);
       }
 
       if (request.method === "GET") {
@@ -130,7 +129,7 @@ export default {
           return apiError("ACTION_REFUSEE", "Action non autorisée.", 403, origin);
         }
         const params: Record<string, string> = {
-          auth_user_id: session.id,
+          auth_user_id: principal.id,
           auth_session_version: session.access_version,
         };
         const id = incoming.searchParams.get("id");
@@ -144,9 +143,21 @@ export default {
           return apiError("ACTION_REFUSEE", "Action non autorisée.", 403, origin);
         }
         const payload = await readJsonBody(request, MAX_BODY_BYTES);
-        payload.auth_user_id = session.id;
+        payload.auth_user_id = principal.id;
         payload.auth_session_version = session.access_version;
-        const result = await callAppsScript(env, "POST", action, payload, {});
+        if (action === "saveFirstDay") payload.chef_nom = principal.display_name;
+        if (action === "saveEvaluationDraft" || action === "finalizeEvaluation") {
+          payload.evaluateur = principal.display_name;
+        }
+        let result: JsonObject;
+        try {
+          result = await callAppsScript(env, "POST", action, payload, {});
+        } catch (error) {
+          if (action !== "submitSituation" || !(error instanceof UpstreamError) || error.code !== "ACTION_INCONNUE") {
+            throw error;
+          }
+          result = await submitSituationToLegacyForm(env, payload, principal, session.access_version);
+        }
         return apiJson(result, 200, origin);
       }
 
@@ -202,12 +213,15 @@ async function login(request: Request, env: Env, origin: string): Promise<Respon
     );
   }
 
-  const result = await callAppsScript(env, "POST", "authenticateAccess", { code }, {});
-  const user = validateAuthUser(result.user);
-  const accessVersion = String(result.session_version || "");
-  if (!/^[A-Za-z0-9_-]{32,128}$/.test(accessVersion)) {
-    throw new UpstreamError("AUTH_INVALIDE", "Version d’accès invalide.");
+  const matches = (await Promise.all(
+    accessDirectory(env).map(async entry => await secretEquals(entry.code, code) ? entry : null),
+  )).filter((entry): entry is AccessEntry => entry !== null);
+  if (matches.length !== 1) {
+    throw new UpstreamError("AUTH_INVALIDE", "Code incorrect ou accès non autorisé.");
   }
+  const matched = matches[0];
+  const user = publicAccessUser(matched);
+  const accessVersion = await accessVersionFor(matched, env.APPS_SCRIPT_KEY);
   const token = await createSessionToken(
     { ...user, access_version: accessVersion },
     env.SESSION_SECRET,
@@ -226,6 +240,129 @@ function requireSecrets(env: Env): void {
   if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32) {
     throw new Error("SESSION_SECRET_MANQUANT");
   }
+  if (!env.ACCESS_DIRECTORY_JSON) throw new Error("ACCESS_DIRECTORY_JSON_MANQUANT");
+}
+
+function accessDirectory(env: Env): AccessEntry[] {
+  let source: unknown;
+  try {
+    source = JSON.parse(env.ACCESS_DIRECTORY_JSON);
+  } catch {
+    throw new Error("ACCESS_DIRECTORY_JSON_INVALIDE");
+  }
+  if (!Array.isArray(source) || source.length < 1 || source.length > 20) {
+    throw new Error("ACCESS_DIRECTORY_JSON_INVALIDE");
+  }
+  const entries = source.map(value => {
+    if (!value || Array.isArray(value) || typeof value !== "object") {
+      throw new Error("ACCESS_DIRECTORY_JSON_INVALIDE");
+    }
+    const object = value as Record<string, unknown>;
+    const user = validateAuthUser(object);
+    const code = String(object.code || "").trim();
+    if (!/^\d{6}$/.test(code)) throw new Error("ACCESS_DIRECTORY_JSON_INVALIDE");
+    return { ...user, code };
+  });
+  if (new Set(entries.map(entry => entry.id)).size !== entries.length ||
+      new Set(entries.map(entry => entry.code)).size !== entries.length) {
+    throw new Error("ACCESS_DIRECTORY_JSON_INVALIDE");
+  }
+  return entries;
+}
+
+function publicAccessUser(entry: AccessEntry): AuthUser {
+  return {
+    id: entry.id,
+    nom: entry.nom,
+    prenom: entry.prenom,
+    poste: entry.poste,
+    display_name: entry.display_name,
+    is_admin: entry.is_admin,
+  };
+}
+
+async function authorizedPrincipal(session: SessionPayload, env: Env): Promise<AuthUser> {
+  const matches = accessDirectory(env).filter(entry => entry.id === session.id);
+  if (matches.length !== 1) throw new UpstreamError("AUTH_REQUISE", "Session révoquée.");
+  const expected = await accessVersionFor(matches[0], env.APPS_SCRIPT_KEY);
+  if (!await secretEquals(expected, session.access_version)) {
+    throw new UpstreamError("AUTH_REQUISE", "Session révoquée.");
+  }
+  return publicAccessUser(matches[0]);
+}
+
+async function accessVersionFor(entry: AccessEntry, secret: string): Promise<string> {
+  return base64UrlEncode(await sign(`${entry.id}|${entry.code}`, secret));
+}
+
+async function secretEquals(left: string, right: string): Promise<boolean> {
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest("SHA-256", new TextEncoder().encode(left)),
+    crypto.subtle.digest("SHA-256", new TextEncoder().encode(right)),
+  ]);
+  const leftBytes = new Uint8Array(a);
+  const rightBytes = new Uint8Array(b);
+  let difference = leftBytes.length ^ rightBytes.length;
+  for (let index = 0; index < Math.max(leftBytes.length, rightBytes.length); index++) {
+    difference |= leftBytes[index % leftBytes.length] ^ rightBytes[index % rightBytes.length];
+  }
+  return difference === 0;
+}
+
+async function submitSituationToLegacyForm(
+  env: Env,
+  payload: JsonObject,
+  principal: AuthUser,
+  accessVersion: string,
+): Promise<JsonObject> {
+  const id = String(payload.id_agent || "").trim();
+  if (!id) throw new UpstreamError("ID_AGENT_MANQUANT", "Agent manquant.");
+  const impact = String(payload.impact || "").trim();
+  if (!["🟢 Bénéfique", "⚪ Neutre", "🔴 Problématique"].includes(impact)) {
+    throw new UpstreamError("IMPACT_INVALIDE", "Impact invalide.");
+  }
+  const contexte = boundedText(payload.contexte, 2_000, "CONTEXTE_TROP_LONG");
+  const consequence = boundedText(payload.consequence, 2_000, "CONSEQUENCE_TROP_LONGUE");
+  const fait = boundedText(payload.fait, 4_000, "FAIT_TROP_LONG");
+  if (!fait) throw new UpstreamError("FAIT_REQUIS", "Le fait est obligatoire.");
+
+  const agentResult = await callAppsScript(env, "GET", "getAgent", {}, {
+    id,
+    auth_user_id: principal.id,
+    auth_session_version: accessVersion,
+  });
+  const agent = agentResult.agent;
+  if (!agent || Array.isArray(agent) || typeof agent !== "object") {
+    throw new UpstreamError("AGENT_INTROUVABLE", "Agent introuvable.");
+  }
+  const source = agent as Record<string, unknown>;
+  const agentName = `${String(source.prenom || "").trim()} ${String(source.nom || "").trim()}`.trim();
+  if (!agentName) throw new UpstreamError("AGENT_INTROUVABLE", "Agent introuvable.");
+
+  const form = new URLSearchParams({
+    "entry.890293520": agentName,
+    "entry.1536926610": impact,
+    "entry.922365674": contexte,
+    "entry.1133964165": consequence,
+    "entry.2080031732": fait,
+    "entry.2073189400": principal.display_name,
+  });
+  const response = await fetch(LEGACY_SITUATION_FORM_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body: form,
+    redirect: "follow",
+  });
+  if (!response.ok) {
+    throw new UpstreamError("ENREGISTREMENT_SITUATION_ECHOUE", "Enregistrement impossible.");
+  }
+  return { ok: true, verified: true, responsable: principal.display_name };
+}
+
+function boundedText(value: unknown, maxLength: number, errorCode: string): string {
+  const text = String(value || "").trim();
+  if (text.length > maxLength) throw new UpstreamError(errorCode, "Texte trop long.");
+  return text;
 }
 
 async function callAppsScript(

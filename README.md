@@ -4,18 +4,19 @@ Site interne de suivi de l’intégration des nouveaux agents, publié sur `resp
 
 ## Accès
 
-- La connexion utilise uniquement un code personnel de six chiffres, enregistré dans la colonne D (`Code d’accès`) de l’onglet `Annuaire`.
+- La connexion utilise uniquement un code personnel de six chiffres, enregistré dans la colonne D (`Code d’accès`) de l’onglet `Annuaire`, puis synchronisé dans le secret Cloudflare `ACCESS_DIRECTORY_JSON` lors de la publication.
 - Les lignes dont le poste contient `Chef` sont autorisées. `SAPIN EDDY` est l’administrateur explicitement autorisé.
 - Les codes doivent être uniques. Un code dupliqué est refusé.
-- La suppression ou la modification d’un code invalide aussi les sessions déjà ouvertes avec l’ancien code.
+- La suppression ou la modification d’un code, suivie de la synchronisation du secret, invalide aussi les sessions déjà ouvertes avec l’ancien code.
 - Aucun e-mail et aucun code d’accès ne doivent être ajoutés au dépôt.
 
 ## Architecture
 
 - Le site statique affiche la connexion et les écrans de suivi.
 - le Worker Cloudflare `suivi-agents-api` contrôle l’origine, limite les tentatives, signe les sessions dans un cookie sécurisé et protège toutes les actions de lecture et d’écriture ;
-- Apps Script relit l’autorisation dans l’annuaire à chaque action et écrit dans les feuilles et documents Google ;
-- les situations sont enregistrées dans l’onglet `Situations sécurisées`, sans formulaire Google public.
+- le Worker conserve les cinq identités autorisées dans un secret chiffré, jamais dans le dépôt ;
+- Apps Script écrit dans les feuilles et documents Google ;
+- les situations utilisent l’action sécurisée Apps Script lorsqu’elle est disponible et, sur l’ancienne version encore déployée, passent par le formulaire Google existant depuis le Worker uniquement.
 
 ## Fonctionnalités
 
@@ -32,4 +33,4 @@ npm test --prefix backend
 ./backend/node_modules/.bin/tsc --noEmit -p backend/tsconfig.json
 ```
 
-L’ordre de publication est impératif : Apps Script, puis le Worker et son domaine personnalisé, puis le site statique. Les valeurs `API_KEY`, `APPS_SCRIPT_KEY`, `APPS_SCRIPT_URL` et `SESSION_SECRET` restent dans les propriétés ou secrets des services et ne sont jamais versionnées.
+L’ordre de publication est impératif : synchroniser `ACCESS_DIRECTORY_JSON`, publier le Worker et son domaine personnalisé, puis publier le site statique. Les valeurs `API_KEY`, `APPS_SCRIPT_KEY`, `APPS_SCRIPT_URL`, `SESSION_SECRET` et `ACCESS_DIRECTORY_JSON` restent dans les propriétés ou secrets des services et ne sont jamais versionnées.
