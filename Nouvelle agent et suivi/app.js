@@ -1,9 +1,23 @@
 
 const API_URL = "https://suivi-agents-api.eddy-sapin.workers.dev";
+let authLoaderPromise = null;
+
+function ensureResponsibleAuth() {
+  if (window.ResponsableAuth) return Promise.resolve(window.ResponsableAuth);
+  if (authLoaderPromise) return authLoaderPromise;
+  authLoaderPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "../auth.js";
+    script.onload = () => window.ResponsableAuth ? resolve(window.ResponsableAuth) : reject(new Error("Authentification indisponible"));
+    script.onerror = () => reject(new Error("Impossible de charger l’authentification"));
+    document.head.appendChild(script);
+  });
+  return authLoaderPromise;
+}
 
 async function requireResponsibleSession() {
-  if (!window.ResponsableAuth) throw new Error("Authentification indisponible");
-  const user = await window.ResponsableAuth.require();
+  const auth = await ensureResponsibleAuth();
+  const user = await auth.require();
   if (!user) throw new Error("Authentification requise");
   return user;
 }
@@ -22,14 +36,14 @@ async function apiGet(action, params = {}) {
 }
 
 async function apiPost(action, payload) {
-  await requireResponsibleSession();
+  const responsible = await requireResponsibleSession();
   const url = new URL(API_URL + "/");
   url.searchParams.set("action", action);
   const r = await fetch(url.toString(), {
     method:"POST",
     headers:{"Content-Type":"application/json"},
     credentials:"include",
-    body:JSON.stringify({...payload, action})
+    body:JSON.stringify({...payload, action, id_responsable:responsible.id_responsable})
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data.message || data.code || "Erreur serveur");
