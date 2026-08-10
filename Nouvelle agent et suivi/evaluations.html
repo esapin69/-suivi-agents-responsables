@@ -1,12 +1,16 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y='; script-src-attr 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
+  <script>document.documentElement.classList.add("auth-pending")</script>
   <title>Évaluations</title>
-  <link rel="stylesheet" href="style.css?v=20260810-evaluations-3">
+  <link rel="stylesheet" href="style.css?v=20260810-auth-1">
 </head>
-<body>
+<body class="evaluation-page">
 <header class="top">
   <div class="brand"><b>GHE</b> · ÉVALUATIONS</div>
   <a class="home" data-agent-link="agent.html" href="suivre-agent.html">Fiche agent</a>
@@ -34,11 +38,11 @@
         <div class="section-number">Informations administratives</div>
         <h3 id="identityTitle">Agent évalué</h3>
         <div class="agent-summary"><strong data-agent-name>Agent sélectionné</strong><span data-agent-meta></span></div>
-        <div class="form-grid two">
-          <label>Grade *<input name="grade" required autocomplete="organization-title" placeholder="Grade de l’agent"></label>
-          <label>Service *<input name="service" required value="STIP"></label>
+        <div class="form-grid two administrative-grid">
+          <label>Grade *<input name="grade" type="text" required autocomplete="organization-title" placeholder="Grade de l’agent"></label>
+          <label>Service *<input name="service" type="text" required value="STIP"></label>
           <label>Date de l’évaluation *<input name="date_evaluation" type="date" required></label>
-          <label>Responsable évaluateur *<select name="evaluateur" id="evaluatorSelect" required><option value="">Chargement des responsables…</option></select></label>
+          <label>Responsable évaluateur *<input name="evaluateur" id="evaluatorSelect" type="text" readonly required placeholder="Chargement du responsable…"></label>
         </div>
       </section>
       <section class="rating-assist" aria-label="Comparaison avec la dernière évaluation">
@@ -64,10 +68,10 @@
           <fieldset class="keep-agent"><legend>Aimeriez-vous garder cet agent ? *</legend><label><input type="radio" name="garder_agent" value="OUI" required><span>Oui</span></label><label><input type="radio" name="garder_agent" value="NON" required><span>Non</span></label></fieldset>
           <div class="signature-date"><label>Fait à Lyon, le *<input name="lyon_le" type="date" required></label></div>
         </div>
-        <div class="signature-grid" aria-label="Signatures du document officiel">
-          <div class="signature-pad" data-signature="agent"><div class="signature-title"><strong>Agent</strong><span>Optionnelle</span></div><canvas aria-label="Zone de signature de l’agent"></canvas><button type="button" class="signature-clear">Effacer</button></div>
-          <div class="signature-pad" data-signature="responsable"><div class="signature-title"><strong>Responsable</strong><span class="required-badge">Obligatoire</span></div><canvas aria-label="Zone de signature du responsable"></canvas><button type="button" class="signature-clear">Effacer</button></div>
-          <div class="signature-pad" data-signature="direction"><div class="signature-title"><strong>Direction ou chef de service</strong><span>Optionnelle</span></div><canvas aria-label="Zone de signature de la direction"></canvas><button type="button" class="signature-clear">Effacer</button></div>
+        <div class="signature-grid" role="group" aria-label="Signatures du document officiel">
+          <div class="signature-pad" data-signature="agent"><div class="signature-title"><strong>Agent</strong><span>Optionnelle</span></div><canvas>Zone de signature de l’agent</canvas><button type="button" class="signature-clear">Effacer</button></div>
+          <div class="signature-pad" data-signature="responsable"><div class="signature-title"><strong>Responsable</strong><span class="required-badge">Obligatoire</span></div><canvas>Zone de signature du responsable</canvas><button type="button" class="signature-clear">Effacer</button></div>
+          <div class="signature-pad" data-signature="direction"><div class="signature-title"><strong>Direction ou chef de service</strong><span>Optionnelle</span></div><canvas>Zone de signature de la direction</canvas><button type="button" class="signature-clear">Effacer</button></div>
         </div>
         <p class="signature-help">Signez directement au doigt, au stylet ou à la souris.</p>
       </section>
@@ -77,10 +81,10 @@
         <div class="final-warning-copy"><span aria-hidden="true">✓</span><div><strong>Prêt à créer le document officiel ?</strong><p>Après validation, cette version et son PDF ne seront plus modifiables.</p></div></div>
         <label class="confirm-line"><input type="checkbox" id="confirmFinal"><span><strong>J’ai relu toute l’évaluation</strong><small>Une correction ultérieure créera une nouvelle version.</small></span></label>
       </div>
-      <div class="btnrow"><button class="btn light" id="saveBtn" type="button">Enregistrer le brouillon</button><button class="btn cyan" id="finalizeBtn" type="button">Valider et générer le PDF</button></div>
+      <div class="btnrow"><button class="btn light" id="saveBtn" type="submit">Enregistrer le brouillon</button><button class="btn cyan" id="finalizeBtn" type="button">Valider et générer le PDF</button></div>
     </form>
   </section>
 </main>
-<script src="app.js"></script><script src="agent-context.js"></script><script src="evaluations.js?v=20260810-evaluations-3"></script>
+<script src="app.js?v=20260810-auth-1"></script><script src="agent-context.js"></script><script src="evaluations.js?v=20260810-evaluations-5"></script>
 </body>
 </html>

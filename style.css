@@ -34,3 +34,12 @@ h1{font-size:clamp(44px,8vw,78px);line-height:.98;margin:14px 0 20px;letter-spac
 .card.notes{border-top:5px solid #17232d}.card.follow{border-top:5px solid var(--cyan)}
 .foot{margin-top:30px;padding-top:22px;border-top:1px solid var(--line);font-size:13px;color:#7a8992;line-height:1.5}
 @media(max-width:700px){.cards{grid-template-columns:1fr}.shell{padding-top:24px}.topbar{min-height:62px}.brand{font-size:19px}}
+
+html.auth-pending body{visibility:hidden}
+html.auth-error body{visibility:visible}
+.auth-controls{display:flex;align-items:center;gap:10px;margin-left:auto}
+.auth-identity{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:12px;font-weight:800}
+.auth-logout{min-height:38px;padding:8px 12px;border:1px solid #bdd0d8;border-radius:9px;background:#f4f8f9;color:var(--ink);font-size:12px;font-weight:850;cursor:pointer}
+.auth-logout:hover{border-color:var(--cyan-dark);color:var(--cyan-dark)}
+.auth-logout:focus-visible{outline:3px solid rgba(22,175,213,.28);outline-offset:2px}
+@media(max-width:700px){.micro,.auth-identity{display:none}.auth-controls{margin-left:auto}.auth-logout{min-height:36px;padding:7px 9px;font-size:11px}}

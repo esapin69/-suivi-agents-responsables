@@ -1,0 +1,39 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "suivi-agents-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "responsable-api.esapin.com/*",
+      "zone_name": "esapin.com"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "LOGIN_IP_LIMITER",
+      "namespace_id": "2026081001",
+      "simple": {
+        "limit": 8,
+        "period": 60
+      }
+    },
+    {
+      "name": "LOGIN_GLOBAL_LIMITER",
+      "namespace_id": "2026081002",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "secrets": {
+    "required": ["APPS_SCRIPT_URL", "APPS_SCRIPT_KEY", "SESSION_SECRET"]
+  }
+}
