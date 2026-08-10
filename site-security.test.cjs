@@ -33,7 +33,7 @@ test("every page applies a restrictive policy before its first script", () => {
     const csp = html.match(/<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]+)">/i);
     assert.ok(csp, `${relative(file)} has no content security policy`);
     assert.ok(html.indexOf(csp[0]) < html.search(/<script\b/i), `${relative(file)} applies its policy too late`);
-    assert.match(csp[1], /connect-src 'self' https:\/\/api\.responsable\.esapin\.com/);
+    assert.match(csp[1], /connect-src 'self' https:\/\/responsable-api\.esapin\.com/);
     assert.match(csp[1], /script-src-attr 'none'/);
     assert.doesNotMatch(csp[1], /script-src[^;]*'unsafe-inline'/);
     for (const hash of inlineScriptHashes(html)) {
