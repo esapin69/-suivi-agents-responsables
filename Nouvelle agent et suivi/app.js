@@ -1,4 +1,4 @@
-const API_URL = "https://api.responsable.esapin.com";
+const API_URL = "https://responsable-api.esapin.com";
 const LOGIN_PATH = "/Nouvelle%20agent%20et%20suivi/connexion.html";
 const AUTH_PAGE = /\/connexion\.html$/.test(window.location.pathname);
 
