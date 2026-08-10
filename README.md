@@ -4,19 +4,19 @@ Site interne de suivi de l’intégration des nouveaux agents, publié sur `resp
 
 ## Accès
 
-- La connexion utilise uniquement un code personnel de six chiffres, enregistré dans la colonne D (`Code d’accès`) de l’onglet `Annuaire`, puis synchronisé dans le secret Cloudflare `ACCESS_DIRECTORY_JSON` lors de la publication.
-- Les lignes dont le poste contient `Chef` sont autorisées. `SAPIN EDDY` est l’administrateur explicitement autorisé.
+- La connexion utilise uniquement un code personnel de six chiffres, enregistré dans l’annuaire privé puis synchronisé dans le secret Cloudflare `ACCESS_DIRECTORY_JSON` lors de la publication.
+- Les quatre chefs et l’administrateur Eddy Sapin sont autorisés.
 - Les codes doivent être uniques. Un code dupliqué est refusé.
 - La suppression ou la modification d’un code, suivie de la synchronisation du secret, invalide aussi les sessions déjà ouvertes avec l’ancien code.
 - Aucun e-mail et aucun code d’accès ne doivent être ajoutés au dépôt.
 
 ## Architecture
 
-- Le site statique affiche la connexion et les écrans de suivi.
-- le Worker Cloudflare `suivi-agents-api` contrôle l’origine, limite les tentatives, signe les sessions dans un cookie sécurisé et protège toutes les actions de lecture et d’écriture ;
-- le Worker conserve les cinq identités autorisées dans un secret chiffré, jamais dans le dépôt ;
-- Apps Script écrit dans les feuilles et documents Google ;
-- les situations utilisent l’action sécurisée Apps Script lorsqu’elle est disponible et, sur l’ancienne version encore déployée, passent par le formulaire Google existant depuis le Worker uniquement.
+- Le site statique `responsable.esapin.com` affiche la connexion et les écrans de suivi.
+- Le Worker Cloudflare `suivi-agents-api`, exposé sur `responsable-api.esapin.com`, contrôle l’origine, limite les tentatives, signe les sessions dans un cookie sécurisé et protège toutes les actions de lecture et d’écriture.
+- Le Worker conserve les identités autorisées et leurs codes dans le secret chiffré `ACCESS_DIRECTORY_JSON`, jamais dans le dépôt.
+- Apps Script écrit dans les feuilles et documents Google.
+- Les situations passent par l’action sécurisée Apps Script lorsqu’elle est disponible ; le Worker garde une compatibilité serveur avec l’ancien formulaire Google tant que nécessaire.
 
 ## Fonctionnalités
 
@@ -33,4 +33,4 @@ npm test --prefix backend
 ./backend/node_modules/.bin/tsc --noEmit -p backend/tsconfig.json
 ```
 
-L’ordre de publication est impératif : synchroniser `ACCESS_DIRECTORY_JSON`, publier le Worker et son domaine personnalisé, puis publier le site statique. Les valeurs `API_KEY`, `APPS_SCRIPT_KEY`, `APPS_SCRIPT_URL`, `SESSION_SECRET` et `ACCESS_DIRECTORY_JSON` restent dans les propriétés ou secrets des services et ne sont jamais versionnées.
+L’ordre de publication est impératif : synchroniser `ACCESS_DIRECTORY_JSON`, publier le Worker sur `responsable-api.esapin.com`, tester l’API, puis publier le site statique. Les valeurs `API_KEY`, `APPS_SCRIPT_KEY`, `APPS_SCRIPT_URL`, `SESSION_SECRET` et `ACCESS_DIRECTORY_JSON` restent dans les propriétés ou secrets des services et ne sont jamais versionnées.
