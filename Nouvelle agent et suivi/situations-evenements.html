@@ -1,10 +1,14 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://api.responsable.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y=' 'sha256-B9J8p+AN6X1AVpnelO61ufb1vKg8wvrb//4qag10E20='; script-src-attr 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
+  <script>document.documentElement.classList.add("auth-pending")</script>
   <title>Situations / événements</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260810-auth-1">
 </head>
 <body>
 <header class="top">
@@ -30,44 +34,40 @@
     <h1 class="page-title">Nouvelle situation</h1>
     <p>Consignez un fait ponctuel lié à l’agent sélectionné.</p>
 
-    <form id="situationForm" class="form" method="post"
-      action="https://docs.google.com/forms/d/e/1FAIpQLSefNyx7HzdDw2Mq17DEVNDVOu-jWq1I-E4D9xvxOmlz_-QVFw/formResponse"
-      target="googleFormResult">
-      <input id="agentAnswer" type="hidden" name="entry.890293520" value="">
+    <form id="situationForm" class="form">
+      <input id="agentId" type="hidden" name="id_agent" value="">
 
       <fieldset class="impact-fieldset">
         <legend>⚖️ Impact</legend>
         <div class="impact-options">
           <label class="impact-option beneficial">
-            <input type="radio" name="entry.1536926610" value="🟢 Bénéfique">
+            <input type="radio" name="impact" value="🟢 Bénéfique" required>
             <span>🟢 Bénéfique</span>
           </label>
           <label class="impact-option neutral">
-            <input type="radio" name="entry.1536926610" value="⚪ Neutre">
+            <input type="radio" name="impact" value="⚪ Neutre" required>
             <span>⚪ Neutre</span>
           </label>
           <label class="impact-option problematic">
-            <input type="radio" name="entry.1536926610" value="🔴 Problématique">
+            <input type="radio" name="impact" value="🔴 Problématique" required>
             <span>🔴 Problématique</span>
           </label>
         </div>
       </fieldset>
 
       <label>📍 Contexte
-        <textarea name="entry.922365674" placeholder="Dans quel contexte la situation s’est-elle produite ?"></textarea>
+        <textarea name="contexte" maxlength="2000" placeholder="Dans quel contexte la situation s’est-elle produite ?"></textarea>
       </label>
 
       <label>🔁 Conséquence
-        <textarea name="entry.1133964165" placeholder="Quelles ont été les conséquences observées ?"></textarea>
+        <textarea name="consequence" maxlength="2000" placeholder="Quelles ont été les conséquences observées ?"></textarea>
       </label>
 
       <label>✏️ Fait
-        <textarea name="entry.2080031732" placeholder="Décrivez les faits de manière précise et objective."></textarea>
+        <textarea name="fait" maxlength="4000" required placeholder="Décrivez les faits de manière précise et objective."></textarea>
       </label>
 
-      <label>Signature
-        <input type="text" name="entry.2073189400" autocomplete="name" placeholder="Nom du responsable">
-      </label>
+      <div class="form-identity"><span>Enregistré par</span><strong id="responsibleName">Responsable connecté</strong></div>
 
       <div id="formStatus" class="status" role="status" aria-live="polite"></div>
       <button id="submitBtn" class="btn cyan" type="submit">Enregistrer la situation</button>
@@ -77,56 +77,58 @@
       <div class="success-check" aria-hidden="true">✓</div>
       <div class="kicker">Enregistrement terminé</div>
       <h2>Situation enregistrée</h2>
-      <p>La situation concernant <strong id="successAgentName"></strong> a bien été ajoutée aux réponses du questionnaire.</p>
+      <p>La situation concernant <strong id="successAgentName"></strong> a bien été ajoutée au registre sécurisé.</p>
       <div class="btnrow">
         <button id="newSituationBtn" class="btn cyan" type="button">＋ Ajouter une autre situation</button>
         <a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Retour à la fiche agent</a>
       </div>
     </section>
-
-    <iframe name="googleFormResult" id="googleFormResult" title="Confirmation d’enregistrement" hidden></iframe>
   </section>
 </main>
 
-<script src="app.js"></script>
+<script src="app.js?v=20260810-auth-1"></script>
 <script src="agent-context.js"></script>
 <script>
   const situationForm = document.getElementById("situationForm");
   const submitBtn = document.getElementById("submitBtn");
   const formStatus = document.getElementById("formStatus");
-  const resultFrame = document.getElementById("googleFormResult");
   const successCard = document.getElementById("successCard");
   const newSituationBtn = document.getElementById("newSituationBtn");
-  let submissionPending = false;
+  let selectedAgentName = "";
 
   async function initializeSituationForm() {
+    await GHEAuth.ready;
     await AgentContext.load();
-    const agentName = document.querySelector("[data-agent-name]").textContent.trim();
-    document.getElementById("agentAnswer").value = agentName;
-    submitBtn.disabled = !agentName || agentName === "Chargement…";
+    selectedAgentName = document.querySelector("[data-agent-name]").textContent.trim();
+    document.getElementById("agentId").value = AgentContext.id || "";
+    document.getElementById("responsibleName").textContent = GHEAuth.user?.display_name || "Responsable connecté";
+    submitBtn.disabled = !AgentContext.id || !selectedAgentName || selectedAgentName === "Chargement…";
   }
 
-  situationForm.addEventListener("submit", event => {
-    const agentName = document.getElementById("agentAnswer").value.trim();
-    if (!agentName) {
-      event.preventDefault();
+  situationForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!AgentContext.id) {
       setStatus(formStatus, "err", "Impossible d’identifier l’agent. Revenez à sa fiche puis réessayez.");
       return;
     }
-    submissionPending = true;
+    if (!situationForm.reportValidity()) return;
     submitBtn.disabled = true;
     setStatus(formStatus, "warn", "Enregistrement en cours…");
-  });
-
-  resultFrame.addEventListener("load", () => {
-    if (!submissionPending) return;
-    submissionPending = false;
-    document.getElementById("successAgentName").textContent = document.getElementById("agentAnswer").value;
-    situationForm.reset();
-    situationForm.hidden = true;
-    successCard.hidden = false;
-    successCard.focus({preventScroll:true});
-    successCard.scrollIntoView({behavior:"smooth", block:"center"});
+    try {
+      const payload = formObject(situationForm);
+      payload.id_agent = AgentContext.id;
+      await apiPost("submitSituation", payload);
+      document.getElementById("successAgentName").textContent = selectedAgentName;
+      situationForm.reset();
+      document.getElementById("agentId").value = AgentContext.id;
+      situationForm.hidden = true;
+      successCard.hidden = false;
+      successCard.focus({preventScroll:true});
+      successCard.scrollIntoView({behavior:"smooth", block:"center"});
+    } catch (error) {
+      setStatus(formStatus, "err", "Échec : " + esc(error.message));
+      submitBtn.disabled = false;
+    }
   });
 
   newSituationBtn.addEventListener("click", () => {
