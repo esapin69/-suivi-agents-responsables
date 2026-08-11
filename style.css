@@ -4,6 +4,7 @@
   --bg:#eef3f6; --card:#fff; --line:#d9e4e9; --soft:#eaf8fc;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{scroll-behavior:smooth}
 body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink)}
 a{color:inherit}
