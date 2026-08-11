@@ -8,9 +8,7 @@ async function rawApi(action, { method = "GET", params = {}, payload = null } = 
   const url = new URL(API_URL + "/");
   url.searchParams.set("action", action);
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== "") {
-      url.searchParams.set(key, value);
-    }
+    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
   }
 
   const options = {
@@ -63,8 +61,42 @@ function redirectToLogin(reason = "") {
   window.location.replace(loginUrl(currentReturnPath(), reason));
 }
 
+function normalizedPath() {
+  try { return decodeURIComponent(window.location.pathname); }
+  catch (_) { return window.location.pathname; }
+}
+
+function requiredAccessForPage() {
+  const explicit = document.body && document.body.dataset ? document.body.dataset.requiredAccess : "";
+  if (explicit) return explicit;
+  const path = normalizedPath();
+  if (path.includes("/Nouvelle agent et suivi/") && !/\/connexion\.html$/.test(path)) return "suivi_agents";
+  if (/\/nouveau-stagiaire\.html$/.test(path)) return "nouveau_stagiaire";
+  return "";
+}
+
+function hasAccess(user, key) {
+  return Boolean(user && user.access && user.access[key] === true);
+}
+
+function enforcePageAccess(user) {
+  const required = requiredAccessForPage();
+  if (!required || hasAccess(user, required)) return true;
+  window.location.replace("/?acces=refuse");
+  return false;
+}
+
+function renderAccessControlledElements(user) {
+  document.querySelectorAll("[data-access]").forEach(el => {
+    const key = String(el.dataset.access || "").trim();
+    el.hidden = !key || !hasAccess(user, key);
+  });
+}
+
 function showAuthenticatedPage(user) {
   authState.user = user;
+  if (!enforcePageAccess(user)) return user;
+  renderAccessControlledElements(user);
   document.documentElement.classList.remove("auth-pending");
   document.documentElement.classList.add("auth-ready");
   renderAuthControls(user);
@@ -93,7 +125,8 @@ async function apiGet(action, params = {}) {
   try {
     return await rawApi(action, { params });
   } catch (error) {
-    if (error.status === 401 || error.status === 403) redirectToLogin();
+    if (error.status === 401) redirectToLogin();
+    if (error.status === 403) window.location.replace("/?acces=refuse");
     throw error;
   }
 }
@@ -103,7 +136,8 @@ async function apiPost(action, payload = {}) {
   try {
     return await rawApi(action, { method: "POST", payload });
   } catch (error) {
-    if (!AUTH_PAGE && (error.status === 401 || error.status === 403)) redirectToLogin();
+    if (!AUTH_PAGE && error.status === 401) redirectToLogin();
+    if (!AUTH_PAGE && error.status === 403) window.location.replace("/?acces=refuse");
     throw error;
   }
 }
@@ -138,9 +172,7 @@ function safeNextPath(value) {
   if (!next.startsWith("/") || next.startsWith("//")) return "/";
   try {
     const url = new URL(next, window.location.origin);
-    return url.origin === window.location.origin
-      ? url.pathname + url.search + url.hash
-      : "/";
+    return url.origin === window.location.origin ? url.pathname + url.search + url.hash : "/";
   } catch (_) {
     return "/";
   }
@@ -173,10 +205,7 @@ function setStatus(el, type, message) {
 }
 
 function q(name) { return document.querySelector(name); }
-
-function formObject(form) {
-  return Object.fromEntries(new FormData(form).entries());
-}
+function formObject(form) { return Object.fromEntries(new FormData(form).entries()); }
 
 function displayDate(iso) {
   if (!iso) return "—";
@@ -191,4 +220,5 @@ window.GHEAuth = {
   existingSession,
   logout,
   safeNextPath,
+  hasAccess: key => hasAccess(authState.user, key),
 };
