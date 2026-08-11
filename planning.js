@@ -1,6 +1,7 @@
 const PLANNING_BRIDGE="https://script.google.com/macros/s/AKfycbwrhifE-4wl-YvKOjJI8HZ_g_ota7tajTKLY3jvLKEF9AvSPjIbVpqcSkSRcl5OdWV9/exec";
 let planningAgentKey="";
 let planningEvents=[];
+let planningType="";
 const $=id=>document.getElementById(id);
 
 function norm(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g," ").trim()}
@@ -11,8 +12,22 @@ function html(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&
 function normalizeAgent(a){
   const key=a.agent||a.key||"";
   const name=a.nom||a.nomComplet||a.nom_complet||a.fullName||String(key).replace(/_/g," ");
-  return {key,name};
+  const type=norm(a.type_planning||a.type||a.equipe||a.team||"");
+  return {key,name,type};
 }
+
+function inferPlanningType(user,agent){
+  const explicit=norm(agent?.type||"");
+  const poste=norm(user?.poste||"");
+  if(explicit.includes("NUIT")||explicit==="NIGHT")return "nuit";
+  if(explicit.includes("CHEF")||explicit.includes("RESPONSABLE"))return "chef";
+  if(explicit.includes("JOUR")||explicit==="DAY")return "jour";
+  if(poste.includes("NUIT"))return "nuit";
+  if(poste.includes("CHEF")||poste.includes("RESPONSABLE"))return "chef";
+  return "jour";
+}
+
+function planningTypeLabel(type){return type==="nuit"?"Nuit":type==="chef"?"Chefs":"Jour"}
 
 async function resolveCurrentAgent(user){
   const u=new URL(PLANNING_BRIDGE);u.searchParams.set("mode","list");u.searchParams.set("t",Date.now());
@@ -67,16 +82,34 @@ async function copyAndroid(){
   try{await navigator.clipboard.writeText(url);$("planningStatus").hidden=false;$("planningStatus").textContent="Lien permanent copié. Dans Google Agenda sur le Web : Autres agendas → + → À partir de l’URL."}
   catch(_){$("planningStatus").hidden=false;$("planningStatus").textContent=url}
 }
+function openOfficial(){
+  if(!planningType)return;
+  // Une seule destination, déterminée par le compte connecté : jamais de choix Jour/Nuit/Chef.
+  window.location.href=`https://planning.esapin.com/mois.html?type=${encodeURIComponent(planningType)}`;
+}
 
-$("officialCard").addEventListener("click",()=>{$("officialChoices").hidden=!$("officialChoices").hidden;if(!$("officialChoices").hidden)$("officialChoices").scrollIntoView({behavior:"smooth"})});
+$("officialCard").addEventListener("click",openOfficial);
+$("officialCard").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openOfficial()}});
 $("showPlanning").addEventListener("click",loadPlanningView);
 $("printPlanning").addEventListener("click",async()=>{if($("planningView").hidden)await loadPlanningView();setTimeout(()=>window.print(),250)});
 $("androidSubscribe").addEventListener("click",copyAndroid);
 
 GHEAuth.ready.then(async user=>{
   try{
-    const agent=await resolveCurrentAgent(user);planningAgentKey=agent.key;
-    $("planningLead").textContent=`${agent.name} · votre planning personnel est relié à ce compte.`;
-    const ics=stableUrl("ics",{agent:planningAgentKey});$("appleSubscribe").href=webcal(ics);$("personalActions").hidden=false;
-  }catch(e){$("planningLead").textContent=e.message;$("planningStatus").hidden=false;$("planningStatus").textContent="Le planning officiel reste accessible ci-dessous. L’association personnelle peut être corrigée sans changer votre code."}
+    const agent=await resolveCurrentAgent(user);
+    planningAgentKey=agent.key;
+    planningType=inferPlanningType(user,agent);
+    const typeLabel=planningTypeLabel(planningType);
+    $("planningLead").textContent=`${agent.name} · planning ${typeLabel} reconnu automatiquement.`;
+    $("officialTitle").textContent=`Planning officiel · ${typeLabel}`;
+    $("officialText").textContent=`La vue ${typeLabel} correspondant à votre profil est sélectionnée automatiquement.`;
+    $("officialCard").setAttribute("aria-disabled","false");
+    const ics=stableUrl("ics",{agent:planningAgentKey});
+    $("appleSubscribe").href=webcal(ics);
+    $("personalActions").hidden=false;
+  }catch(e){
+    $("planningLead").textContent=e.message;
+    $("planningStatus").hidden=false;
+    $("planningStatus").textContent="L’association personnelle doit être corrigée dans la source. Aucun choix manuel Jour/Nuit/Chef ne sera proposé.";
+  }
 });
