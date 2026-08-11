@@ -106,13 +106,11 @@ function normalizeEvaluationPayload_(p,finalizing){
   if(!result.date_evaluation||!result.evaluateur) throw new Error('CHAMPS_SUIVI_OBLIGATOIRES');
   if(!parseIsoDate_(result.date_evaluation)) throw new Error('DATE_EVALUATION_INVALIDE');
   if(result.lyon_le&&!parseIsoDate_(result.lyon_le)) throw new Error('DATE_LYON_INVALIDE');
-
   EVAL_CRITERIA.forEach(label=>{
     const level=clean_(result.criteres[label])||EVAL_NOT_OBSERVED;
     if(!EVAL_LEVELS.includes(level)) throw new Error('NIVEAU_INVALIDE: '+label);
     result.criteres[label]=level;
   });
-
   if(finalizing){
     if(!result.grade||!result.service||!result.lyon_le) throw new Error('CHAMPS_EVALUATION_OBLIGATOIRES');
     if(!['OUI','NON'].includes(result.garder_agent)) throw new Error('DECISION_GARDER_AGENT_INVALIDE');
@@ -211,7 +209,7 @@ function replaceDateInDocument_(doc,dateText){for(const section of documentSecti
 function fillObservations_(doc,values){let cursor=0;for(const section of documentSections_(doc)){walkParagraphs_(section,p=>{if(cursor>=values.length)return false;const label=normalize_(p.getText());if(label.indexOf('OBSERVATION')!==0)return false;const value=clean_(values[cursor++]);p.setText(label.indexOf('GENERALES')>=0?'OBSERVATIONS GENERALES :':'OBSERVATIONS :');if(value)p.appendText('\n'+value);return false;});if(cursor>=values.length)break;}}
 function insertSignatures_(doc,signatures){const inserted={agent:false,responsable:false,direction:false};documentSections_(doc).forEach(section=>walkParagraphs_(section,p=>{const text=normalize_(p.getText());if(!inserted.agent&&signatures.agent&&text.indexOf('SIGNATUREDELAGENT')>=0){appendSignatureImage_(p,signatures.agent,'agent');inserted.agent=true;}if(!inserted.responsable&&signatures.responsable&&(text.indexOf('SIGNATUREDURESPONSABLE')>=0||text.indexOf('RESPONSABLEEVALUATEUR')>=0)){appendSignatureImage_(p,signatures.responsable,'responsable');inserted.responsable=true;}if(!inserted.direction&&signatures.direction&&(text.indexOf('DIRECTIONDESSOINS')>=0||text.indexOf('DIRECTIONOUCHEFDESERVICE')>=0)){appendSignatureImage_(p,signatures.direction,'direction');inserted.direction=true;}return false;}));if(signatures.responsable&&!inserted.responsable)throw new Error('EMPLACEMENT_SIGNATURE_RESPONSABLE_INTROUVABLE');}
 function appendSignatureImage_(container,dataUrl,name){container.appendText('\n');const bytes=Utilities.base64Decode(dataUrl.split(',')[1]);const image=container.appendInlineImage(Utilities.newBlob(bytes,'image/png','signature-'+name+'.png'));const width=145,height=Math.max(42,Math.round(image.getHeight()*width/image.getWidth()));image.setWidth(width).setHeight(Math.min(height,72));}
-function fillTableRatings_(body,criteria){body.getTables().forEach(table=>{for(let i=0;i<table.getNumRows();i++){const row=table.getRow(i);for(let j=0;j<row.getNumCells();j++){const label=clean_(row.getCell(j).getText()),criterion=EVAL_CRITERIA.find(c=>normalize_(c)===normalize_(label));if(!criterion)continue;const selected=EVAL_LEVELS.indexOf(criteria[criterion]);for(let k=0;k<EVAL_LEVELS.length&&j+1+k<row.getNumCells();k++)row.getCell(j+1+k).setText(k===selected?'X':'');}}}});}
+function fillTableRatings_(body,criteria){body.getTables().forEach(table=>{for(let i=0;i<table.getNumRows();i++){const row=table.getRow(i);for(let j=0;j<row.getNumCells();j++){const label=clean_(row.getCell(j).getText()),criterion=EVAL_CRITERIA.find(c=>normalize_(c)===normalize_(label));if(!criterion)continue;const selected=EVAL_LEVELS.indexOf(criteria[criterion]);for(let k=0;k<EVAL_LEVELS.length&&j+1+k<row.getNumCells();k++)row.getCell(j+1+k).setText(k===selected?'X':'');}}});}
 function replaceEverywhere_(doc,regex,replacement){const pattern=regex.source,safe=String(replacement).replace(/\$/g,'$$$$');documentSections_(doc).forEach(section=>{try{section.replaceText(pattern,safe);}catch(_){}});}
 function sha256Hex_(bytes){return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,bytes).map(b=>('0'+((b<0?b+256:b).toString(16))).slice(-2)).join('');}
 function openConvertedDocument_(fileId){let lastError;for(let attempt=0;attempt<6;attempt++){if(attempt)Utilities.sleep(1000*attempt);try{return DocumentApp.openById(fileId);}catch(err){lastError=err;}}throw new Error('DOCUMENT_CONVERTI_INACCESSIBLE: '+String(lastError&&lastError.message||lastError));}
