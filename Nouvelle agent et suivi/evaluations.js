@@ -17,21 +17,39 @@ function renderCriteria(){
     const sectionTitle=sectionTitleParts.join(" — ");
     const criteria=section.criteria.map(label=>{
       const name="critere_"+slug(label);
-      const choices=LEVELS.map((level,i)=>{
-        return `<label class="${i===7?"not-evaluable-option":""}" title="${esc(level)}"><input type="radio" name="${name}" value="${esc(level)}" aria-label="${esc(level)}" required><span>${esc(LEVEL_SHORT_LABELS[i])}</span></label>`;
-      }).join("");
+      const choices=LEVELS.map((level,i)=>`<label class="${i===7?"not-evaluable-option":""}" title="${esc(level)}"><input type="radio" name="${name}" value="${esc(level)}" aria-label="${esc(level)}" required><span>${esc(LEVEL_SHORT_LABELS[i])}</span></label>`).join("");
       return `<div class="criterion"><div class="criterion-label">${esc(label)} <span aria-hidden="true">*</span></div><div class="level-options" role="radiogroup" aria-label="${esc(label)}">${choices}</div></div>`;
     }).join("");
     return `<fieldset class="evaluation-section"><legend><span>${esc(sectionNumber)}</span><strong>${esc(sectionTitle)}</strong></legend><div class="criteria-table">${criteria}</div><label class="section-observation">Observations<textarea name="${section.observation}" placeholder="Faits observés, exemples ou commentaire (facultatif)"></textarea></label></fieldset>`;
   }).join("");
 }
+
 function today(){const parts=Object.fromEntries(new Intl.DateTimeFormat("fr-FR",{timeZone:"Europe/Paris",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()).map(part=>[part.type,part.value]));return `${parts.year}-${parts.month}-${parts.day}`}
-function payload(){const data=Object.fromEntries(new FormData(el("evaluationForm")).entries());data.id_agent=AgentContext.id;data.evaluateur=GHEAuth.user?.display_name||data.evaluateur||"";data.criteres={};EVALUATION_SECTIONS.flatMap(s=>s.criteria).forEach(label=>{data.criteres[label]=data["critere_"+slug(label)]||"";delete data["critere_"+slug(label)];});data.signatures=Object.fromEntries(Object.entries(state.signatures).filter(([,pad])=>pad.signed).map(([name,pad])=>[name,pad.canvas.toDataURL("image/png")]));return data}
 function connectedResponsibleName(){const user=GHEAuth.user;return user?(user.display_name||`${user.prenom||""} ${user.nom||""}`.trim()):""}
-function prefillAdministrativeFields(){const f=el("evaluationForm").elements,agent=state.agent||{};f.grade.value=agent.grade||agent.poste||"";f.service.value=agent.service||"STIP";f.evaluateur.value=connectedResponsibleName()}
+
+function payload(){
+  const data=Object.fromEntries(new FormData(el("evaluationForm")).entries());
+  data.id_agent=AgentContext.id;
+  data.evaluateur=String(data.evaluateur||"").trim();
+  data.criteres={};
+  EVALUATION_SECTIONS.flatMap(s=>s.criteria).forEach(label=>{data.criteres[label]=data["critere_"+slug(label)]||"";delete data["critere_"+slug(label)]});
+  data.signatures=Object.fromEntries(Object.entries(state.signatures).filter(([,pad])=>pad.signed).map(([name,pad])=>[name,pad.canvas.toDataURL("image/png")]));
+  return data;
+}
+
+function evaluatorControl(){return el("evaluatorSelect")}
+function setEvaluatorValue(value){
+  const control=evaluatorControl(); if(!control)return;
+  const wanted=String(value||"").trim();
+  if(control.tagName==="SELECT" && wanted && ![...control.options].some(o=>o.value===wanted)){
+    const option=document.createElement("option"); option.value=wanted; option.textContent=wanted; control.appendChild(option);
+  }
+  control.value=wanted||connectedResponsibleName();
+}
+function prefillAdministrativeFields(){const f=el("evaluationForm").elements,agent=state.agent||{};f.grade.value=agent.grade||agent.poste||"";f.service.value=agent.service||"STIP";setEvaluatorValue(connectedResponsibleName())}
 function resetForm(){state.locked=false;el("evaluationForm").reset();clearValidationErrors();hidePreviousAnswers();Object.values(state.signatures).forEach(pad=>{pad.ctx.clearRect(0,0,pad.canvas.width,pad.canvas.height);pad.signed=false});el("evaluationForm").elements.date_evaluation.value=today();el("evaluationForm").elements.lyon_le.value=today();prefillAdministrativeFields();el("formKicker").textContent="Nouvelle évaluation";el("formTitle").textContent="Brouillon";el("pdfBtn").hidden=true;el("pdfBtn").removeAttribute("href");lockForm(false);el("confirmFinal").checked=false;el("finalizeBtn").disabled=false;el("formStatus").className="status"}
 function lockForm(value){state.locked=value;hidePreviousAnswers();el("evaluationForm").querySelectorAll("input,textarea,select").forEach(x=>{if(x.id!=="confirmFinal")x.disabled=value});el("saveBtn").hidden=value;el("finalizeBtn").hidden=value;el("confirmFinal").closest(".final-warning").hidden=value;el("previousEvaluationReference").hidden=value;updatePreviousEvaluationButton()}
-function fillForm(ev){resetForm();const f=el("evaluationForm").elements;["id_evaluation","grade","service","date_evaluation","evaluateur","lyon_le","garder_agent","observations_1","observations_2","observations_3","observations_4","observations_5","observations_generales"].forEach(k=>{if(f[k])f[k].value=ev[k]||""});if(ev.statut!=="VALIDE")f.evaluateur.value=connectedResponsibleName();Object.entries(ev.criteres||{}).forEach(([label,value])=>{const radio=document.querySelector(`[name="critere_${slug(label)}"][value="${CSS.escape(value)}"]`);if(radio)radio.checked=true});el("formKicker").textContent=ev.statut==="VALIDE"?"Version officielle":"Brouillon";el("formTitle").textContent=`${ev.id_evaluation} · version ${ev.version}`;if(ev.url_document){el("pdfBtn").href=ev.url_document;el("pdfBtn").hidden=false}lockForm(ev.statut==="VALIDE")}
+function fillForm(ev){resetForm();const f=el("evaluationForm").elements;["id_evaluation","grade","service","date_evaluation","lyon_le","garder_agent","observations_1","observations_2","observations_3","observations_4","observations_5","observations_generales"].forEach(k=>{if(f[k])f[k].value=ev[k]||""});setEvaluatorValue(ev.evaluateur||connectedResponsibleName());Object.entries(ev.criteres||{}).forEach(([label,value])=>{const radio=document.querySelector(`[name="critere_${slug(label)}"][value="${CSS.escape(value)}"]`);if(radio)radio.checked=true});el("formKicker").textContent=ev.statut==="VALIDE"?"Version officielle":"Brouillon";el("formTitle").textContent=`${ev.id_evaluation} · version ${ev.version}`;if(ev.url_document){el("pdfBtn").href=ev.url_document;el("pdfBtn").hidden=false}lockForm(ev.statut==="VALIDE")}
 function renderList(){const box=el("evaluationList");if(!state.evaluations.length){box.innerHTML='<div class="empty">Aucune évaluation. Créez le premier brouillon.</div>';return}box.innerHTML=state.evaluations.map(ev=>`<button class="evaluation-row" data-id="${esc(ev.id_evaluation)}" type="button"><span><strong>${esc(displayDate(ev.date_evaluation))}</strong><small>${esc(ev.evaluateur||"Évaluateur non renseigné")}</small></span><span class="badge ${ev.statut==="VALIDE"?"verifie":"provisoire"}">${esc(ev.statut)} · v${esc(ev.version)}</span></button>`).join("");box.querySelectorAll("button").forEach(b=>b.onclick=()=>openEvaluation(b.dataset.id))}
 function clearPreviousAnswerMarkers(){document.querySelectorAll(".previous-choice").forEach(node=>node.classList.remove("previous-choice"))}
 function paintPreviousEvaluationButton(active=state.previousAnswersVisible){const button=el("previousEvaluationBtn"),label=el("previousEvaluationLabel"),action=el("previousEvaluationAction");if(!button)return;button.classList.toggle("is-active",active);button.setAttribute("aria-pressed",String(active));label.textContent=active?"Masquer la dernière évaluation":"Afficher la dernière évaluation";action.textContent=active?"Les anciens choix sont entourés en gris":state.lastValidated?"Un clic pour comparer":"Indisponible"}
@@ -47,18 +65,29 @@ function validateForm(finalize){clearValidationErrors();const form=el("evaluatio
 function friendlyError(message){const raw=String(message||"");if(/permission|authorization|autorisation|DocumentApp/i.test(raw))return "Google n’autorise pas encore la création du PDF. Exécutez testEvaluationConfiguration dans Apps Script, vérifiez que le journal affiche ok:true, puis redéployez une nouvelle version.";return raw}
 async function submit(finalize){const form=el("evaluationForm");if(!validateForm(finalize))return;const button=finalize?el("finalizeBtn"):el("saveBtn"),original=button.textContent;setStatus(el("formStatus"),"warn",finalize?"Validation en cours… Le PDF est en cours de création.":"Enregistrement en cours…");el("formStatus").scrollIntoView({behavior:"smooth",block:"nearest"});el("saveBtn").disabled=true;el("finalizeBtn").disabled=true;button.textContent=finalize?"Validation en cours…":"Enregistrement…";try{const action=finalize?"finalizeEvaluation":"saveEvaluationDraft";const d=await apiPost(action,payload());if(finalize){const ev=d.evaluation;el("evaluationForm").elements.id_evaluation.value=ev.id_evaluation||"";el("formKicker").textContent="Version officielle";el("formTitle").textContent=`${ev.id_evaluation} · version ${ev.version}`;if(ev.url_document){el("pdfBtn").href=ev.url_document;el("pdfBtn").hidden=false}lockForm(true);setStatus(el("formStatus"),"ok","✓ Évaluation validée. Ouverture du PDF officiel…");await loadList();if(ev.url_document)window.location.assign(ev.url_document)}else{fillForm(d.evaluation);setStatus(el("formStatus"),"ok","✓ Brouillon enregistré.");await loadList()}}catch(e){setStatus(el("formStatus"),"err","Échec : "+esc(friendlyError(e.message)))}finally{button.textContent=original;if(!state.locked){el("saveBtn").disabled=false;el("finalizeBtn").disabled=false}}}
 
-async function loadResponsables(){const input=el("evaluatorSelect");await GHEAuth.ready;const user=GHEAuth.user;if(!user){input.value="";input.placeholder="Responsable indisponible";return}const name=connectedResponsibleName();state.responsables=[user];input.value=name;input.title=user.poste?`${name} — ${user.poste}`:name}
+async function loadResponsables(){
+  const original=el("evaluatorSelect");
+  await GHEAuth.ready;
+  const user=GHEAuth.user;
+  if(!original||!user)return;
+  let agents=[];
+  try{const d=await apiGet("listDirectory");agents=d.agents||[]}catch(_){}
+  const currentName=connectedResponsibleName();
+  const allowed=agents.filter(a=>/chef|responsable|cadre/i.test(String(a.poste||""))).map(a=>({nom:a.nom,prenom:a.prenom,poste:a.poste,display_name:`${a.prenom||""} ${a.nom||""}`.trim()}));
+  if(!allowed.some(a=>a.display_name.toLocaleLowerCase("fr")===currentName.toLocaleLowerCase("fr")))allowed.unshift({nom:user.nom,prenom:user.prenom,poste:user.poste,display_name:currentName});
+  const unique=[];const seen=new Set();allowed.forEach(a=>{const key=a.display_name.toLocaleLowerCase("fr");if(!key||seen.has(key))return;seen.add(key);unique.push(a)});state.responsables=unique;
+  const select=document.createElement("select");select.id="evaluatorSelect";select.name="evaluateur";select.required=true;select.setAttribute("aria-label","Responsable évaluateur");
+  unique.forEach(a=>{const option=document.createElement("option");option.value=a.display_name;option.textContent=a.poste?`${a.display_name} — ${a.poste}`:a.display_name;select.appendChild(option)});
+  original.replaceWith(select);select.value=currentName;
+}
 
 function resizeSignaturePads(){Object.values(state.signatures).forEach(pad=>pad.resize())}
 function showFormPanel(){el("formPanel").hidden=false;requestAnimationFrame(resizeSignaturePads)}
 function setupSignatures(){document.querySelectorAll(".signature-pad").forEach(box=>{const name=box.dataset.signature,canvas=box.querySelector("canvas"),ctx=canvas.getContext("2d"),pad={canvas,ctx,signed:false,drawing:false};state.signatures[name]=pad;pad.resize=()=>{const rect=canvas.getBoundingClientRect();if(!rect.width)return;const ratio=Math.max(1,window.devicePixelRatio||1),height=rect.height||130,snapshot=pad.signed?canvas.toDataURL("image/png"):"";canvas.width=Math.round(rect.width*ratio);canvas.height=Math.round(height*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);ctx.lineWidth=2.2;ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle="#17232d";if(snapshot){const image=new Image();image.onload=()=>ctx.drawImage(image,0,0,rect.width,height);image.src=snapshot}};const point=e=>{const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};canvas.addEventListener("pointerdown",e=>{if(state.locked)return;e.preventDefault();pad.drawing=true;canvas.setPointerCapture(e.pointerId);const p=point(e);ctx.beginPath();ctx.moveTo(p.x,p.y)});canvas.addEventListener("pointermove",e=>{if(!pad.drawing)return;e.preventDefault();const p=point(e);ctx.lineTo(p.x,p.y);ctx.stroke();pad.signed=true});canvas.addEventListener("pointerup",()=>{pad.drawing=false});canvas.addEventListener("pointercancel",()=>{pad.drawing=false});box.querySelector(".signature-clear").onclick=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);pad.signed=false}});window.addEventListener("resize",resizeSignaturePads)}
 
 document.addEventListener("DOMContentLoaded",async()=>{
-  renderCriteria();
-  setupSignatures();
-  const previousBtn=el("previousEvaluationBtn");
-  previousBtn.setAttribute("aria-busy","true");
-  previousBtn.addEventListener("click",togglePreviousAnswers);
+  renderCriteria();setupSignatures();
+  const previousBtn=el("previousEvaluationBtn");previousBtn.setAttribute("aria-busy","true");previousBtn.addEventListener("click",togglePreviousAnswers);
   await loadResponsables();
   try{state.agent=await AgentContext.load();await loadList()}catch(_){}
   el("newBtn").onclick=()=>{resetForm();showFormPanel();el("formPanel").scrollIntoView({behavior:"smooth"})};
