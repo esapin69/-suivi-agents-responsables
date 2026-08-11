@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#0d2433">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y='; script-src-attr 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
+  <script>document.documentElement.classList.add("auth-pending")</script>
+  <title>GHE · Planning</title>
+  <link rel="stylesheet" href="style.css?v=20260811-portail-3">
+</head>
+<body data-required-access="planning">
+  <header class="topbar portal-topbar"><a class="portal-brand" href="/"><span class="portal-brand-mark">G</span><span><strong>GHE</strong><small>Planning</small></span></a></header>
+  <main class="module-shell">
+    <div class="module-head"><a class="module-back" href="/">← Accueil</a></div>
+    <span class="portal-eyebrow">PLANNING</span>
+    <h1 class="module-title">Mon planning</h1>
+    <p class="module-lead" id="planningLead">Connexion à votre planning personnel…</p>
+
+    <section class="module-grid">
+      <article class="module-card primary">
+        <span class="mini-icon">▦</span><h2>Mon planning personnel</h2><p>Consulter les prochains jours, imprimer et s’abonner à l’agenda natif du téléphone.</p>
+        <span class="go">→</span>
+      </article>
+      <article class="module-card" id="officialCard">
+        <span class="mini-icon">📄</span><h2>Planning officiel</h2><p>Accéder à la vue officielle Jour, Nuit ou Chefs.</p><span class="go">→</span>
+      </article>
+    </section>
+
+    <section id="personalActions" class="planning-actions" hidden>
+      <button class="planning-action primary-action" id="showPlanning" type="button">Voir mon planning</button>
+      <button class="planning-action" id="printPlanning" type="button">Imprimer</button>
+      <a class="planning-action apple-action" id="appleSubscribe" href="#">Apple · S’abonner</a>
+      <button class="planning-action" id="androidSubscribe" type="button">Android · Copier le lien</button>
+    </section>
+    <div id="planningStatus" class="contact-note" hidden></div>
+    <section id="planningView" class="native-planning" hidden></section>
+
+    <section id="officialChoices" class="official-choices" hidden>
+      <h2>Planning officiel</h2>
+      <div class="module-grid">
+        <a class="module-card" href="https://planning.esapin.com/mois.html?type=jour" target="_blank" rel="noopener"><span class="mini-icon">☀</span><h2>Jour</h2><p>Planning officiel de l’équipe Jour.</p><span class="go">↗</span></a>
+        <a class="module-card" href="https://planning.esapin.com/mois.html?type=nuit" target="_blank" rel="noopener"><span class="mini-icon">☾</span><h2>Nuit</h2><p>Planning officiel de l’équipe Nuit.</p><span class="go">↗</span></a>
+        <a class="module-card" href="https://planning.esapin.com/mois.html?type=chef" target="_blank" rel="noopener"><span class="mini-icon">◎</span><h2>Chefs</h2><p>Planning de coordination.</p><span class="go">↗</span></a>
+      </div>
+    </section>
+  </main>
+  <script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260811-auth-4"></script>
+  <script src="planning.js?v=20260811-1"></script>
+</body>
+</html>
