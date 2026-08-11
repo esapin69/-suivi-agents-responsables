@@ -17,15 +17,15 @@
     <div class="module-head"><a class="module-back" href="/">← Accueil</a></div>
     <span class="portal-eyebrow">PLANNING</span>
     <h1 class="module-title">Mon planning</h1>
-    <p class="module-lead" id="planningLead">Connexion à votre planning personnel…</p>
+    <p class="module-lead" id="planningLead">Identification de votre planning…</p>
 
     <section class="module-grid">
       <article class="module-card primary">
         <span class="mini-icon">▦</span><h2>Mon planning personnel</h2><p>Consulter les prochains jours, imprimer et s’abonner à l’agenda natif du téléphone.</p>
         <span class="go">→</span>
       </article>
-      <article class="module-card" id="officialCard">
-        <span class="mini-icon">📄</span><h2>Planning officiel</h2><p>Accéder à la vue officielle Jour, Nuit ou Chefs.</p><span class="go">→</span>
+      <article class="module-card" id="officialCard" role="button" tabindex="0" aria-disabled="true">
+        <span class="mini-icon">📄</span><h2 id="officialTitle">Mon planning officiel</h2><p id="officialText">La vue utile sera choisie automatiquement selon votre profil.</p><span class="go">→</span>
       </article>
     </section>
 
@@ -37,17 +37,8 @@
     </section>
     <div id="planningStatus" class="contact-note" hidden></div>
     <section id="planningView" class="native-planning" hidden></section>
-
-    <section id="officialChoices" class="official-choices" hidden>
-      <h2>Planning officiel</h2>
-      <div class="module-grid">
-        <a class="module-card" href="https://planning.esapin.com/mois.html?type=jour" target="_blank" rel="noopener"><span class="mini-icon">☀</span><h2>Jour</h2><p>Planning officiel de l’équipe Jour.</p><span class="go">↗</span></a>
-        <a class="module-card" href="https://planning.esapin.com/mois.html?type=nuit" target="_blank" rel="noopener"><span class="mini-icon">☾</span><h2>Nuit</h2><p>Planning officiel de l’équipe Nuit.</p><span class="go">↗</span></a>
-        <a class="module-card" href="https://planning.esapin.com/mois.html?type=chef" target="_blank" rel="noopener"><span class="mini-icon">◎</span><h2>Chefs</h2><p>Planning de coordination.</p><span class="go">↗</span></a>
-      </div>
-    </section>
   </main>
   <script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260811-auth-4"></script>
-  <script src="planning.js?v=20260811-1"></script>
+  <script src="planning.js?v=20260811-2"></script>
 </body>
 </html>
