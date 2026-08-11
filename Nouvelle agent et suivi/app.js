@@ -1,3 +1,10 @@
+if (window.location.protocol !== "https:" && !/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname)) {
+  const secureUrl = new URL(window.location.href);
+  secureUrl.protocol = "https:";
+  window.location.replace(secureUrl.toString());
+  throw new Error("Redirection HTTPS en cours");
+}
+
 const API_URL = "https://responsable-api.esapin.com";
 const LOGIN_PATH = "/Nouvelle%20agent%20et%20suivi/connexion.html";
 const AUTH_PAGE = /\/connexion\.html$/.test(window.location.pathname);
