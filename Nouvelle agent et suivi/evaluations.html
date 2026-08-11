@@ -8,35 +8,26 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y='; script-src-attr 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
   <script>document.documentElement.classList.add("auth-pending")</script>
   <title>Évaluations</title>
-  <link rel="stylesheet" href="style.css?v=20260810-auth-1">
+  <link rel="stylesheet" href="style.css?v=20260812-terrain-1">
 </head>
 <body class="evaluation-page">
-<header class="top">
-  <div class="brand"><b>GHE</b> · ÉVALUATIONS</div>
-  <a class="home" data-agent-link="agent.html" href="suivre-agent.html">Fiche agent</a>
-</header>
+<header class="top"><div class="brand"><b>GHE</b> · ÉVALUATIONS</div><a class="home" data-agent-link="agent.html" href="suivre-agent.html">Fiche agent</a></header>
 <main class="shell">
   <a class="back" data-agent-link="agent.html" href="suivre-agent.html">← Retour à la fiche agent</a>
   <div id="contextStatus" class="status show warn">Chargement de l’agent…</div>
-
-  <section class="context-card">
-    <div><div class="kicker">Agent sélectionné</div><div class="context-name" data-agent-name>Chargement…</div><p data-agent-meta></p></div>
-    <a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Voir la fiche</a>
-  </section>
+  <section class="context-card"><div><div class="kicker">Agent sélectionné</div><div class="context-name" data-agent-name>Chargement…</div><p data-agent-meta></p></div><a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Voir la fiche</a></section>
 
   <section class="panel" id="listPanel">
-    <div class="evaluation-title-row"><div><div class="kicker">Historique officiel</div><h1 class="page-title">Évaluations</h1></div><button class="btn cyan" id="newBtn" type="button">Nouvelle évaluation</button></div>
-    <div id="listStatus" class="status"></div>
-    <div id="evaluationList" class="evaluation-list"></div>
+    <div class="evaluation-title-row"><div><div class="kicker">Suivi terrain et historique officiel</div><h1 class="page-title">Évaluations</h1><p class="official-note">Notez uniquement ce que vous avez réellement observé. Les autres critères restent sur « Non observé ».</p></div><button class="btn cyan" id="newBtn" type="button">Ajouter une observation</button></div>
+    <div id="listStatus" class="status"></div><div id="evaluationList" class="evaluation-list"></div>
   </section>
 
   <section class="panel evaluation-form-panel" id="formPanel" hidden>
-    <div class="evaluation-title-row form-heading"><div><div class="kicker" id="formKicker">Nouvelle évaluation</div><h2 id="formTitle">Fiche d’évaluation</h2><p class="official-note">Document à retourner à la Gestion intégrée – PAM Cardio</p></div><button class="btn light" id="closeBtn" type="button">Fermer</button></div>
+    <div class="evaluation-title-row form-heading"><div><div class="kicker" id="formKicker">Nouvelle observation</div><h2 id="formTitle">Suivi terrain</h2><p class="official-note">Le brouillon ne sera créé que si vous enregistrez au moins un élément réellement observé.</p></div><button class="btn light" id="closeBtn" type="button">Fermer</button></div>
     <form id="evaluationForm" class="form">
       <input type="hidden" name="id_evaluation">
       <section class="identity-sheet" aria-labelledby="identityTitle">
-        <div class="section-number">Informations administratives</div>
-        <h3 id="identityTitle">Agent évalué</h3>
+        <div class="section-number">Informations administratives</div><h3 id="identityTitle">Agent évalué</h3>
         <div class="agent-summary"><strong data-agent-name>Agent sélectionné</strong><span data-agent-meta></span></div>
         <div class="form-grid two administrative-grid">
           <label>Grade *<input name="grade" type="text" required autocomplete="organization-title" placeholder="Grade de l’agent"></label>
@@ -45,46 +36,28 @@
           <label>Responsable évaluateur *<input name="evaluateur" id="evaluatorSelect" type="text" readonly required placeholder="Chargement du responsable…"></label>
         </div>
       </section>
-      <section class="rating-assist" aria-label="Comparaison avec la dernière évaluation">
-        <div class="previous-evaluation-reference" id="previousEvaluationReference">
-          <button class="previous-evaluation-btn" id="previousEvaluationBtn" type="button" aria-describedby="previousEvaluationHint" aria-pressed="false" disabled>
-            <span class="previous-eye" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle></svg>
-            </span>
-            <span><strong id="previousEvaluationLabel">Afficher la dernière évaluation</strong><small id="previousEvaluationAction">Recherche en cours…</small></span>
-          </button>
-          <small id="previousEvaluationHint">Recherche de la dernière évaluation validée…</small>
-        </div>
-      </section>
+
+      <section class="rating-assist" aria-label="Comparaison avec la dernière évaluation"><div class="previous-evaluation-reference" id="previousEvaluationReference"><button class="previous-evaluation-btn" id="previousEvaluationBtn" type="button" aria-describedby="previousEvaluationHint" aria-pressed="false" disabled><span class="previous-eye" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.75"></circle></svg></span><span><strong id="previousEvaluationLabel">Afficher la dernière évaluation</strong><small id="previousEvaluationAction">Recherche en cours…</small></span></button><small id="previousEvaluationHint">Recherche de la dernière évaluation validée…</small></div></section>
+
       <div id="criteria"></div>
+
       <section class="decision-sheet">
-        <div class="decision-heading">
-          <div class="section-number">Conclusion</div>
-          <h3>Finaliser l’évaluation</h3>
-          <p>Ajoutez la synthèse, la décision et les signatures nécessaires au document officiel.</p>
-        </div>
+        <div class="decision-heading"><div class="section-number">Conclusion</div><h3>Finaliser l’évaluation</h3><p>Cette partie n’est nécessaire que lorsque vous souhaitez créer le document officiel.</p></div>
         <label class="general-observations">Observations générales<textarea name="observations_generales" placeholder="Synthèse de l’évaluation"></textarea></label>
-        <div class="decision-meta">
-          <fieldset class="keep-agent"><legend>Aimeriez-vous garder cet agent ? *</legend><label><input type="radio" name="garder_agent" value="OUI" required><span>Oui</span></label><label><input type="radio" name="garder_agent" value="NON" required><span>Non</span></label></fieldset>
-          <div class="signature-date"><label>Fait à Lyon, le *<input name="lyon_le" type="date" required></label></div>
-        </div>
+        <div class="decision-meta"><fieldset class="keep-agent"><legend>Aimeriez-vous garder cet agent ? *</legend><label><input type="radio" name="garder_agent" value="OUI" required><span>Oui</span></label><label><input type="radio" name="garder_agent" value="NON" required><span>Non</span></label></fieldset><div class="signature-date"><label>Fait à Lyon, le *<input name="lyon_le" type="date" required></label></div></div>
         <div class="signature-grid" role="group" aria-label="Signatures du document officiel">
           <div class="signature-pad" data-signature="agent"><div class="signature-title"><strong>Agent</strong><span>Optionnelle</span></div><canvas>Zone de signature de l’agent</canvas><button type="button" class="signature-clear">Effacer</button></div>
           <div class="signature-pad" data-signature="responsable"><div class="signature-title"><strong>Responsable</strong><span class="required-badge">Obligatoire</span></div><canvas>Zone de signature du responsable</canvas><button type="button" class="signature-clear">Effacer</button></div>
           <div class="signature-pad" data-signature="direction"><div class="signature-title"><strong>Direction ou chef de service</strong><span>Optionnelle</span></div><canvas>Zone de signature de la direction</canvas><button type="button" class="signature-clear">Effacer</button></div>
-        </div>
-        <p class="signature-help">Signez directement au doigt, au stylet ou à la souris.</p>
+        </div><p class="signature-help">Signez directement au doigt, au stylet ou à la souris.</p>
       </section>
-      <div id="formStatus" class="status" role="status" aria-live="assertive"></div>
-      <a class="btn cyan evaluation-pdf" id="pdfBtn" href="#" target="_blank" rel="noopener" hidden>Ouvrir le PDF officiel</a>
-      <div class="final-warning" id="finalConfirmation">
-        <div class="final-warning-copy"><span aria-hidden="true">✓</span><div><strong>Prêt à créer le document officiel ?</strong><p>Après validation, cette version et son PDF ne seront plus modifiables.</p></div></div>
-        <label class="confirm-line"><input type="checkbox" id="confirmFinal"><span><strong>J’ai relu toute l’évaluation</strong><small>Une correction ultérieure créera une nouvelle version.</small></span></label>
-      </div>
+
+      <div id="formStatus" class="status" role="status" aria-live="assertive"></div><a class="btn cyan evaluation-pdf" id="pdfBtn" href="#" target="_blank" rel="noopener" hidden>Ouvrir le PDF officiel</a>
+      <div class="final-warning" id="finalConfirmation"><div class="final-warning-copy"><span aria-hidden="true">✓</span><div><strong>Prêt à créer le document officiel ?</strong><p>Après validation, cette version et son PDF ne seront plus modifiables.</p></div></div><label class="confirm-line"><input type="checkbox" id="confirmFinal"><span><strong>J’ai relu toute l’évaluation</strong><small>Une correction ultérieure créera une nouvelle version.</small></span></label></div>
       <div class="btnrow"><button class="btn light" id="saveBtn" type="submit">Enregistrer le brouillon</button><button class="btn cyan" id="finalizeBtn" type="button">Valider et générer le PDF</button></div>
     </form>
   </section>
 </main>
-<script src="app.js?v=20260810-auth-1"></script><script src="agent-context.js"></script><script src="evaluations.js?v=20260810-evaluations-5"></script>
+<script src="app.js?v=20260811-auth-6"></script><script src="agent-context.js?v=20260812-1"></script><script src="evaluations.js?v=20260812-terrain-1"></script>
 </body>
 </html>
