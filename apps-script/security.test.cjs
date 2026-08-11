@@ -44,40 +44,46 @@ function runtime(rows) {
   return context;
 }
 
-function row({ id, nom, prenom, poste, code }) {
-  return { id, nom, prenom, poste, code };
+function row({ id, nom, prenom, poste, code, access = {} }) {
+  return { id, nom, prenom, poste, code, access };
 }
 
-test("a unique six-digit chef code creates a public identity and opaque version", () => {
+test("a unique six-digit code authenticates any listed person without exposing the code", () => {
   const rows = [row({
     id: "TEST|ALICE",
     nom: "TEST",
     prenom: "Alice",
-    poste: "Chef d'équipe",
+    poste: "Agent de jour",
     code: "123456",
+    access: { planning: true, contacts: false },
   })];
   const app = runtime(rows);
   const result = app.authenticateAccess_("123456");
   assert.equal(result.ok, true);
   assert.equal(result.user.id, "TEST|ALICE");
   assert.equal(result.user.code, undefined);
+  assert.equal(result.user.access.planning, true);
+  assert.equal(result.user.access.contacts, false);
   assert.match(result.session_version, /^[A-Za-z0-9_-]{43}$/);
 });
 
-test("duplicate codes and non-authorized roles are rejected", () => {
+test("duplicate codes and malformed codes are rejected", () => {
   const duplicateRows = [
-    row({ id: "TEST|A", nom: "TEST", prenom: "A", poste: "Chef", code: "234567" }),
+    row({ id: "TEST|A", nom: "TEST", prenom: "A", poste: "Agent", code: "234567" }),
     row({ id: "TEST|B", nom: "TEST", prenom: "B", poste: "Chef", code: "234567" }),
   ];
   assert.throws(() => runtime(duplicateRows).authenticateAccess_("234567"), /AUTH_INVALIDE/);
-
-  const agentRows = [
-    row({ id: "TEST|C", nom: "TEST", prenom: "C", poste: "Agent", code: "345678" }),
-  ];
-  assert.throws(() => runtime(agentRows).authenticateAccess_("345678"), /AUTH_INVALIDE/);
+  assert.throws(() => runtime([]).authenticateAccess_("12345"), /AUTH_INVALIDE/);
 });
 
-test("the named admin exception is authorized without a chef title", () => {
+test("access is controlled by OK-derived rights, not by role", () => {
+  const app = runtime([]);
+  const agent = row({ id:"TEST|A", nom:"TEST", prenom:"A", poste:"Agent", code:"345678", access:{planning:true,contacts:false} });
+  assert.doesNotThrow(() => app.requireAccess_(agent, "planning"));
+  assert.throws(() => app.requireAccess_(agent, "contacts"), /ACCES_REFUSE/);
+});
+
+test("the named admin flag remains available without changing normal rights", () => {
   const rows = [row({
     id: "SAPIN|EDDY",
     nom: "SAPIN",
@@ -94,7 +100,7 @@ test("changing a code immediately invalidates the old session version", () => {
     id: "TEST|ALICE",
     nom: "TEST",
     prenom: "Alice",
-    poste: "Chef",
+    poste: "Agent",
     code: "567890",
   })];
   const app = runtime(rows);
