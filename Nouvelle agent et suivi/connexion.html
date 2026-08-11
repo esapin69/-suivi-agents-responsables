@@ -6,17 +6,16 @@
   <meta name="robots" content="noindex,nofollow">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-zxXwxPfkJBqaT9SemS6OQghn/uXwsl7wSHWFe8Nr3j0='; script-src-attr 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
-  <title>Connexion · Espace responsables</title>
+  <title>Connexion · Portail GHE</title>
   <link rel="stylesheet" href="style.css?v=20260810-auth-1">
 </head>
 <body class="login-page">
   <main class="login-shell">
     <section class="login-card" aria-labelledby="loginTitle">
       <div class="login-mark" aria-hidden="true">GHE</div>
-      <div class="kicker">Espace réservé</div>
-      <h1 id="loginTitle">Connexion responsable</h1>
-      <p>Entrez le code personnel de 6 chiffres inscrit sur votre ligne dans l’annuaire.</p>
-
+      <div class="kicker">Accès personnel</div>
+      <h1 id="loginTitle">Connexion GHE</h1>
+      <p>Entrez votre code personnel de 6 chiffres. Votre accueil affichera uniquement les rubriques autorisées pour votre ligne.</p>
       <form id="loginForm" class="login-form">
         <label for="accessCode">Code d’accès</label>
         <div class="code-field">
@@ -27,12 +26,10 @@
         <div id="loginStatus" class="status" role="status" aria-live="assertive"></div>
         <button id="loginButton" class="btn cyan login-submit" type="submit">Se connecter</button>
       </form>
-
-      <p class="login-security">Le code est vérifié par le serveur et n’est jamais inclus dans l’adresse de la page.</p>
+      <p class="login-security">Une nouvelle saisie remplace la session précédente sur cet appareil.</p>
     </section>
   </main>
-
-  <script src="app.js?v=20260810-auth-1"></script>
+  <script src="app.js?v=20260811-auth-4"></script>
   <script>
     const form = document.getElementById("loginForm");
     const codeInput = document.getElementById("accessCode");
@@ -41,10 +38,7 @@
     const toggle = document.getElementById("toggleCode");
     const loginParams = new URL(window.location.href).searchParams;
     const next = GHEAuth.safeNextPath(loginParams.get("next"));
-    if (loginParams.get("erreur") === "service") {
-      setStatus(status, "err", "Le service était momentanément inaccessible. Vous pouvez réessayer ici.");
-    }
-
+    if (loginParams.get("erreur") === "service") setStatus(status, "err", "Le service était momentanément inaccessible. Vous pouvez réessayer ici.");
     toggle.addEventListener("click", () => {
       const visible = codeInput.type === "text";
       codeInput.type = visible ? "password" : "text";
@@ -53,13 +47,11 @@
       toggle.setAttribute("aria-label", visible ? "Afficher le code" : "Masquer le code");
       codeInput.focus();
     });
-
     codeInput.addEventListener("input", () => {
       codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 6);
       status.className = "status";
       status.textContent = "";
     });
-
     form.addEventListener("submit", async event => {
       event.preventDefault();
       if (!form.reportValidity()) return;
@@ -78,7 +70,6 @@
         button.textContent = "Se connecter";
       }
     });
-
     GHEAuth.existingSession().then(user => {
       if (!user) return;
       setStatus(status, "ok", `Déjà connecté : ${esc(user.display_name)}.`);
