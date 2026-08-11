@@ -10,32 +10,17 @@ async function rawApi(action, { method = "GET", params = {}, payload = null } = 
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
   }
-
-  const options = {
-    method,
-    credentials: "include",
-    cache: "no-store",
-    headers: { Accept: "application/json" },
-  };
+  const options = { method, credentials: "include", cache: "no-store", headers: { Accept: "application/json" } };
   if (method === "POST") {
     options.headers["Content-Type"] = "application/json";
     options.body = JSON.stringify(payload || {});
   }
-
   let response;
-  try {
-    response = await fetch(url.toString(), options);
-  } catch (_) {
-    throw new Error("Connexion au service impossible. Vérifiez le réseau puis réessayez.");
-  }
-
+  try { response = await fetch(url.toString(), options); }
+  catch (_) { throw new Error("Connexion au service impossible. Vérifiez le réseau puis réessayez."); }
   let data;
-  try {
-    data = await response.json();
-  } catch (_) {
-    throw new Error("Le service a renvoyé une réponse illisible.");
-  }
-
+  try { data = await response.json(); }
+  catch (_) { throw new Error("Le service a renvoyé une réponse illisible."); }
   if (!response.ok) {
     const error = new Error(data.message || data.code || "Erreur serveur");
     error.code = data.code || "ERREUR_SERVEUR";
@@ -45,9 +30,7 @@ async function rawApi(action, { method = "GET", params = {}, payload = null } = 
   return data;
 }
 
-function currentReturnPath() {
-  return window.location.pathname + window.location.search + window.location.hash;
-}
+function currentReturnPath() { return window.location.pathname + window.location.search + window.location.hash; }
 
 function loginUrl(next = currentReturnPath(), reason = "") {
   const url = new URL(LOGIN_PATH, window.location.origin);
@@ -70,14 +53,12 @@ function requiredAccessForPage() {
   const explicit = document.body && document.body.dataset ? document.body.dataset.requiredAccess : "";
   if (explicit) return explicit;
   const path = normalizedPath();
-  if (path.includes("/Nouvelle agent et suivi/") && !/\/connexion\.html$/.test(path)) return "suivi_agents";
+  if (path.includes("/Nouvelle agent et suivi/") && !/\/connexion\.html$/.test(path)) return "suivi_des_agents";
   if (/\/nouveau-stagiaire\.html$/.test(path)) return "nouveau_stagiaire";
   return "";
 }
 
-function hasAccess(user, key) {
-  return Boolean(user && user.access && user.access[key] === true);
-}
+function hasAccess(user, key) { return Boolean(user && user.access && user.access[key] === true); }
 
 function enforcePageAccess(user) {
   const required = requiredAccessForPage();
@@ -105,14 +86,9 @@ function showAuthenticatedPage(user) {
 }
 
 async function loadSession() {
-  try {
-    const data = await rawApi("session");
-    return showAuthenticatedPage(data.user);
-  } catch (error) {
-    if (error.status === 401 || error.status === 403) {
-      redirectToLogin();
-      return new Promise(() => {});
-    }
+  try { return showAuthenticatedPage((await rawApi("session")).user); }
+  catch (error) {
+    if (error.status === 401 || error.status === 403) { redirectToLogin(); return new Promise(() => {}); }
     redirectToLogin("service");
     return new Promise(() => {});
   }
@@ -122,9 +98,8 @@ const GHE_AUTH_READY = AUTH_PAGE ? Promise.resolve(null) : loadSession();
 
 async function apiGet(action, params = {}) {
   await GHE_AUTH_READY;
-  try {
-    return await rawApi(action, { params });
-  } catch (error) {
+  try { return await rawApi(action, { params }); }
+  catch (error) {
     if (error.status === 401) redirectToLogin();
     if (error.status === 403) window.location.replace("/?acces=refuse");
     throw error;
@@ -133,9 +108,8 @@ async function apiGet(action, params = {}) {
 
 async function apiPost(action, payload = {}) {
   if (!AUTH_PAGE || !["login", "logout"].includes(action)) await GHE_AUTH_READY;
-  try {
-    return await rawApi(action, { method: "POST", payload });
-  } catch (error) {
+  try { return await rawApi(action, { method: "POST", payload }); }
+  catch (error) {
     if (!AUTH_PAGE && error.status === 401) redirectToLogin();
     if (!AUTH_PAGE && error.status === 403) window.location.replace("/?acces=refuse");
     throw error;
@@ -149,22 +123,13 @@ async function loginWithCode(code) {
 }
 
 async function logout() {
-  try {
-    await rawApi("logout", { method: "POST", payload: {} });
-  } finally {
-    authState.user = null;
-    window.location.replace(loginUrl("/"));
-  }
+  try { await rawApi("logout", { method: "POST", payload: {} }); }
+  finally { authState.user = null; window.location.replace(loginUrl("/")); }
 }
 
 async function existingSession() {
-  try {
-    const data = await rawApi("session");
-    authState.user = data.user;
-    return data.user;
-  } catch (_) {
-    return null;
-  }
+  try { const data = await rawApi("session"); authState.user = data.user; return data.user; }
+  catch (_) { return null; }
 }
 
 function safeNextPath(value) {
@@ -173,9 +138,7 @@ function safeNextPath(value) {
   try {
     const url = new URL(next, window.location.origin);
     return url.origin === window.location.origin ? url.pathname + url.search + url.hash : "/";
-  } catch (_) {
-    return "/";
-  }
+  } catch (_) { return "/"; }
 }
 
 function renderAuthControls(user) {
@@ -195,18 +158,10 @@ function renderAuthControls(user) {
   header.appendChild(controls);
 }
 
-function esc(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
-}
-
-function setStatus(el, type, message) {
-  el.className = "status show " + type;
-  el.innerHTML = message;
-}
-
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c])); }
+function setStatus(el, type, message) { el.className = "status show " + type; el.innerHTML = message; }
 function q(name) { return document.querySelector(name); }
 function formObject(form) { return Object.fromEntries(new FormData(form).entries()); }
-
 function displayDate(iso) {
   if (!iso) return "—";
   const match = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
