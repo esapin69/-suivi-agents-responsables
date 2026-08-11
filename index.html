@@ -1,19 +1,50 @@
 <!DOCTYPE html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y='; script-src-attr 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
-<script>document.documentElement.classList.add("auth-pending")</script>
-<title>Portail GHE</title><link rel="stylesheet" href="style.css?v=20260811-portail-1"></head>
-<body>
-<header class="topbar"><div class="brand"><b>GHE</b> · MON ESPACE</div><div class="micro">OUTIL INTERNE</div></header>
-<main class="shell">
-  <section class="hero"><div class="kicker">Accès personnel</div><h1>Mon accueil</h1><p>Seules les rubriques autorisées pour votre profil apparaissent ici.</p></section>
-  <section class="cards">
-    <a class="card follow" data-access="suivi_des_agents" href="Nouvelle%20agent%20et%20suivi/" hidden><div class="icon">👤</div><h2>Suivi des agents</h2><p>Créer, retrouver et poursuivre le suivi d’un agent.</p><span class="arrow">→</span></a>
-    <a class="card notes" data-access="prendre_des_notes" href="https://sites.google.com/view/hfme-notes/notes-rapides" target="_blank" rel="noopener" hidden><div class="icon">✍️</div><h2>Prendre des notes</h2><p>Consigner rapidement une information terrain.</p><span class="arrow">↗</span></a>
-    <a class="card" data-access="planning" href="https://planning.esapin.com/" hidden><div class="icon">📅</div><h2>Planning</h2><p>Voir son planning et accéder aux outils calendrier.</p><span class="arrow">→</span></a>
-    <a class="card" data-access="contacts" href="https://planning.esapin.com/contacts-ghe.html" hidden><div class="icon">☎️</div><h2>Contacts</h2><p>Retrouver rapidement les contacts utiles du GHE.</p><span class="arrow">→</span></a>
-    <a class="card" data-access="nouvel_arrivant" href="https://nouvel-agent.esapin.com/index.html" hidden><div class="icon">🧭</div><h2>Nouvel arrivant</h2><p>Repères, attendus, contacts et parcours d’intégration.</p><span class="arrow">→</span></a>
-    <a class="card" data-access="nouveau_stagiaire" href="nouveau-stagiaire.html" hidden><div class="icon">🎓</div><h2>Nouveau stagiaire</h2><p>Espace dédié à l’accueil et au suivi des stagiaires.</p><span class="arrow">→</span></a>
-  </section>
-  <div class="foot">Les accès sont pilotés par l’annuaire. Une rubrique absente de votre profil n’est pas proposée.</div>
-</main><script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260811-portail-2"></script></body></html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#0d2433">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y='; script-src-attr 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
+  <script>document.documentElement.classList.add("auth-pending")</script>
+  <title>GHE · Mon espace</title>
+  <link rel="stylesheet" href="style.css?v=20260811-portail-3">
+</head>
+<body class="portal-home">
+  <header class="topbar portal-topbar">
+    <a class="portal-brand" href="/" aria-label="Accueil GHE">
+      <span class="portal-brand-mark">G</span>
+      <span><strong>GHE</strong><small>Portail terrain</small></span>
+    </a>
+    <div class="portal-top-meta"><span class="secure-dot"></span><span>Espace sécurisé</span></div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="portal-hero">
+      <div class="portal-hero-copy">
+        <span class="portal-eyebrow">ACCÈS PERSONNEL</span>
+        <h1 id="portalName">Mon espace</h1>
+        <p>Les outils utiles, sans détour. Votre accueil s’adapte automatiquement aux accès autorisés sur votre ligne.</p>
+      </div>
+      <div class="portal-hero-badge" aria-hidden="true"><span>GHE</span><small>STIP</small></div>
+    </section>
+
+    <section class="portal-section-head">
+      <div><span class="portal-eyebrow">RUBRIQUES</span><h2>Que voulez-vous faire ?</h2></div>
+      <p>Seules vos rubriques sont chargées.</p>
+    </section>
+
+    <section class="portal-grid" id="portalCards" aria-live="polite"></section>
+    <section class="portal-empty" id="portalEmpty" hidden>
+      <strong>Aucune rubrique n’est autorisée pour ce profil.</strong>
+      <span>Vérifiez la ligne correspondante dans l’annuaire.</span>
+    </section>
+
+    <footer class="portal-footer"><span>GHE · outil interne</span><span>Accès pilotés par l’annuaire</span></footer>
+  </main>
+
+  <script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260811-auth-4"></script>
+  <script src="portal.js?v=20260811-1"></script>
+</body>
+</html>
