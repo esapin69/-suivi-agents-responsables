@@ -17,6 +17,7 @@ const EVAL_HEADERS = Object.freeze([
 ]);
 const EVAL_CRITERIA = Object.freeze(EVAL_HEADERS.slice(16,36));
 const EVAL_LEVELS = Object.freeze(['Insuffisant','Médiocre','Passable','Assez bien','Bien','Très bien','Exceptionnel','Éléments insuffisants pour évaluer']);
+const EVAL_NOT_OBSERVED = 'Éléments insuffisants pour évaluer';
 
 function listEvaluations_(agentId){
   if(!agentId) throw new Error('ID_AGENT_MANQUANT');
@@ -34,6 +35,7 @@ function saveEvaluationDraft_(p){
   const lock=LockService.getScriptLock(); lock.waitLock(20000);
   try{
     const normalized=normalizeEvaluationPayload_(p,false);
+    if(!hasMeaningfulEvaluation_(normalized)) throw new Error('BROUILLON_VIDE');
     const sheet=evaluationSheet_(), rows=evaluationRows_();
     const existing=normalized.id_evaluation?rows.find(x=>x.id_evaluation===normalized.id_evaluation):null;
     if(existing&&existing.statut==='VALIDE') throw new Error('EVALUATION_VALIDEE_IMMUABLE');
@@ -56,6 +58,7 @@ function finalizeEvaluation_(p){
   let googleDocFile=null,pdfFile=null;
   try{
     const normalized=normalizeEvaluationPayload_(p,true);
+    if(!hasMeaningfulEvaluation_(normalized)) throw new Error('EVALUATION_VIDE');
     const sheet=evaluationSheet_(), rows=evaluationRows_();
     const existing=normalized.id_evaluation?rows.find(x=>x.id_evaluation===normalized.id_evaluation):null;
     if(existing&&existing.statut==='VALIDE') throw new Error('EVALUATION_VALIDEE_IMMUABLE');
@@ -100,12 +103,30 @@ function normalizeEvaluationPayload_(p,finalizing){
     signatures:normalizeSignatures_(p.signatures)
   };
   if(!result.id_agent) throw new Error('ID_AGENT_MANQUANT');
-  if(!result.grade||!result.service||!result.date_evaluation||!result.evaluateur||!result.lyon_le) throw new Error('CHAMPS_EVALUATION_OBLIGATOIRES');
-  if(!parseIsoDate_(result.date_evaluation)||!parseIsoDate_(result.lyon_le)) throw new Error('DATE_INVALIDE');
-  if(!['OUI','NON'].includes(result.garder_agent)) throw new Error('DECISION_GARDER_AGENT_INVALIDE');
-  if(finalizing&&!result.signatures.responsable) throw new Error('SIGNATURE_RESPONSABLE_REQUISE');
-  EVAL_CRITERIA.forEach(label=>{const level=clean_(result.criteres[label]);if(!EVAL_LEVELS.includes(level))throw new Error('NIVEAU_INVALIDE: '+label);result.criteres[label]=level;});
+  if(!result.date_evaluation||!result.evaluateur) throw new Error('CHAMPS_SUIVI_OBLIGATOIRES');
+  if(!parseIsoDate_(result.date_evaluation)) throw new Error('DATE_EVALUATION_INVALIDE');
+  if(result.lyon_le&&!parseIsoDate_(result.lyon_le)) throw new Error('DATE_LYON_INVALIDE');
+
+  EVAL_CRITERIA.forEach(label=>{
+    const level=clean_(result.criteres[label])||EVAL_NOT_OBSERVED;
+    if(!EVAL_LEVELS.includes(level)) throw new Error('NIVEAU_INVALIDE: '+label);
+    result.criteres[label]=level;
+  });
+
+  if(finalizing){
+    if(!result.grade||!result.service||!result.lyon_le) throw new Error('CHAMPS_EVALUATION_OBLIGATOIRES');
+    if(!['OUI','NON'].includes(result.garder_agent)) throw new Error('DECISION_GARDER_AGENT_INVALIDE');
+    if(!result.signatures.responsable) throw new Error('SIGNATURE_RESPONSABLE_REQUISE');
+  }else if(result.garder_agent&&!['OUI','NON'].includes(result.garder_agent)){
+    throw new Error('DECISION_GARDER_AGENT_INVALIDE');
+  }
   return result;
+}
+
+function hasMeaningfulEvaluation_(r){
+  const observed=EVAL_CRITERIA.some(label=>clean_(r.criteres[label])&&clean_(r.criteres[label])!==EVAL_NOT_OBSERVED);
+  const note=[r.observations_1,r.observations_2,r.observations_3,r.observations_4,r.observations_5,r.observations_generales].some(v=>clean_(v));
+  return observed||note;
 }
 
 function normalizeSignatures_(input){
@@ -133,7 +154,7 @@ function evaluationRecordToRow_(r){
 function evaluationRows_(){
   const sheet=evaluationSheet_(),last=sheet.getLastRow(); if(last<2)return[];
   return sheet.getRange(2,1,last-1,45).getValues().map((r,i)=>({
-    row_number:i+2,id_evaluation:clean_(r[0]),statut:clean_(r[1]),version:Number(r[2]||0),id_agent:clean_(r[3]),nom:clean_(r[4]),prenom:clean_(r[5]),matricule:clean_(r[6]),grade:clean_(r[7]),service:clean_(r[8]),dans_service_depuis:formatDateForClient_(r[9]),date_evaluation:formatDateForClient_(r[10]),evaluateur:clean_(r[11]),cree_le_raw:r[12],valide_le_raw:r[13],cree_le:formatDateTimeForClient_(r[12]),valide_le:formatDateTimeForClient_(r[13]),url_document:clean_(r[14]),sha256:clean_(r[15]),criteres:Object.fromEntries(EVAL_CRITERIA.map((c,j)=>[c,clean_(r[16+j])])),observations_1:clean_(r[36]),observations_2:clean_(r[37]),observations_3:clean_(r[38]),observations_4:clean_(r[39]),observations_5:clean_(r[40]),observations_generales:clean_(r[41]),garder_agent:clean_(r[42]),lyon_le:formatDateForClient_(r[43]),version_modele:clean_(r[44])
+    row_number:i+2,id_evaluation:clean_(r[0]),statut:clean_(r[1]),version:Number(r[2]||0),id_agent:clean_(r[3]),nom:clean_(r[4]),prenom:clean_(r[5]),matricule:clean_(r[6]),grade:clean_(r[7]),service:clean_(r[8]),dans_service_depuis:formatDateForClient_(r[9]),date_evaluation:formatDateForClient_(r[10]),evaluateur:clean_(r[11]),cree_le_raw:r[12],valide_le_raw:r[13],cree_le:formatDateTimeForClient_(r[12]),valide_le:formatDateTimeForClient_(r[13]),url_document:clean_(r[14]),sha256:clean_(r[15]),criteres:Object.fromEntries(EVAL_CRITERIA.map((c,j)=>[c,clean_(r[16+j])||EVAL_NOT_OBSERVED])),observations_1:clean_(r[36]),observations_2:clean_(r[37]),observations_3:clean_(r[38]),observations_4:clean_(r[39]),observations_5:clean_(r[40]),observations_generales:clean_(r[41]),garder_agent:clean_(r[42]),lyon_le:formatDateForClient_(r[43]),version_modele:clean_(r[44])
   })).filter(x=>x.id_evaluation);
 }
 
@@ -174,7 +195,6 @@ function fillOfficialDocument_(doc,r){
   insertSignatures_(doc,r.signatures||{});
 }
 
-/* Parcours récursif : paragraphes simples + cellules de tableaux + en-tête + pied de page. */
 function walkParagraphs_(container,callback){
   if(!container||typeof container.getNumChildren!=='function') return false;
   for(let i=0;i<container.getNumChildren();i++){
@@ -185,104 +205,15 @@ function walkParagraphs_(container,callback){
   }
   return false;
 }
-
 function documentSections_(doc){return [doc.getBody(),doc.getHeader(),doc.getFooter()].filter(Boolean);}
-
-function setDocumentLine_(doc,token,replacement){
-  const wanted=normalize_(token);
-  for(const section of documentSections_(doc)){
-    const found=walkParagraphs_(section,p=>{if(normalize_(p.getText()).indexOf(wanted)===0){p.setText(replacement);return true;}return false;});
-    if(found)return true;
-  }
-  return false;
-}
-
-function replaceDateInDocument_(doc,dateText){
-  for(const section of documentSections_(doc)){
-    const found=walkParagraphs_(section,p=>{
-      const text=p.getText(),normalized=normalize_(text);
-      if(normalized.indexOf('DATE')<0)return false;
-      if(/DATE\s*:/i.test(text)){p.setText(text.replace(/DATE\s*:[^\n\r]*/i,'DATE : '+dateText));return true;}
-      return false;
-    });
-    if(found)return true;
-  }
-  return false;
-}
-
-function fillObservations_(doc,values){
-  let cursor=0;
-  for(const section of documentSections_(doc)){
-    walkParagraphs_(section,p=>{
-      if(cursor>=values.length)return false;
-      const label=normalize_(p.getText());
-      if(label.indexOf('OBSERVATION')!==0)return false;
-      const value=clean_(values[cursor++]);
-      p.setText(label.indexOf('GENERALES')>=0?'OBSERVATIONS GENERALES :':'OBSERVATIONS :');
-      if(value)p.appendText('\n'+value);
-      return false;
-    });
-    if(cursor>=values.length)break;
-  }
-}
-
-function insertSignatures_(doc,signatures){
-  const inserted={agent:false,responsable:false,direction:false};
-  documentSections_(doc).forEach(section=>walkParagraphs_(section,p=>{
-    const text=normalize_(p.getText());
-    if(!inserted.agent&&signatures.agent&&text.indexOf('SIGNATUREDELAGENT')>=0){appendSignatureImage_(p,signatures.agent,'agent');inserted.agent=true;}
-    if(!inserted.responsable&&signatures.responsable&&(text.indexOf('SIGNATUREDURESPONSABLE')>=0||text.indexOf('RESPONSABLEEVALUATEUR')>=0)){appendSignatureImage_(p,signatures.responsable,'responsable');inserted.responsable=true;}
-    if(!inserted.direction&&signatures.direction&&(text.indexOf('DIRECTIONDESSOINS')>=0||text.indexOf('DIRECTIONOUCHEFDESERVICE')>=0)){appendSignatureImage_(p,signatures.direction,'direction');inserted.direction=true;}
-    return false;
-  }));
-  if(signatures.responsable&&!inserted.responsable)throw new Error('EMPLACEMENT_SIGNATURE_RESPONSABLE_INTROUVABLE');
-}
-
-function appendSignatureImage_(container,dataUrl,name){
-  container.appendText('\n');
-  const bytes=Utilities.base64Decode(dataUrl.split(',')[1]);
-  const image=container.appendInlineImage(Utilities.newBlob(bytes,'image/png','signature-'+name+'.png'));
-  const width=145,height=Math.max(42,Math.round(image.getHeight()*width/image.getWidth()));
-  image.setWidth(width).setHeight(Math.min(height,72));
-}
-
-function fillTableRatings_(body,criteria){
-  body.getTables().forEach(table=>{for(let i=0;i<table.getNumRows();i++){const row=table.getRow(i);for(let j=0;j<row.getNumCells();j++){
-    const label=clean_(row.getCell(j).getText()),criterion=EVAL_CRITERIA.find(c=>normalize_(c)===normalize_(label));if(!criterion)continue;
-    const selected=EVAL_LEVELS.indexOf(criteria[criterion]);
-    for(let k=0;k<EVAL_LEVELS.length&&j+1+k<row.getNumCells();k++)row.getCell(j+1+k).setText(k===selected?'X':'');
-  }}});
-}
-
-function replaceEverywhere_(doc,regex,replacement){
-  const pattern=regex.source,safe=String(replacement).replace(/\$/g,'$$$$');
-  documentSections_(doc).forEach(section=>{try{section.replaceText(pattern,safe);}catch(_){}});
-}
-
+function setDocumentLine_(doc,token,replacement){const wanted=normalize_(token);for(const section of documentSections_(doc)){const found=walkParagraphs_(section,p=>{if(normalize_(p.getText()).indexOf(wanted)===0){p.setText(replacement);return true;}return false;});if(found)return true;}return false;}
+function replaceDateInDocument_(doc,dateText){for(const section of documentSections_(doc)){const found=walkParagraphs_(section,p=>{const text=p.getText(),normalized=normalize_(text);if(normalized.indexOf('DATE')<0)return false;if(/DATE\s*:/i.test(text)){p.setText(text.replace(/DATE\s*:[^\n\r]*/i,'DATE : '+dateText));return true;}return false;});if(found)return true;}return false;}
+function fillObservations_(doc,values){let cursor=0;for(const section of documentSections_(doc)){walkParagraphs_(section,p=>{if(cursor>=values.length)return false;const label=normalize_(p.getText());if(label.indexOf('OBSERVATION')!==0)return false;const value=clean_(values[cursor++]);p.setText(label.indexOf('GENERALES')>=0?'OBSERVATIONS GENERALES :':'OBSERVATIONS :');if(value)p.appendText('\n'+value);return false;});if(cursor>=values.length)break;}}
+function insertSignatures_(doc,signatures){const inserted={agent:false,responsable:false,direction:false};documentSections_(doc).forEach(section=>walkParagraphs_(section,p=>{const text=normalize_(p.getText());if(!inserted.agent&&signatures.agent&&text.indexOf('SIGNATUREDELAGENT')>=0){appendSignatureImage_(p,signatures.agent,'agent');inserted.agent=true;}if(!inserted.responsable&&signatures.responsable&&(text.indexOf('SIGNATUREDURESPONSABLE')>=0||text.indexOf('RESPONSABLEEVALUATEUR')>=0)){appendSignatureImage_(p,signatures.responsable,'responsable');inserted.responsable=true;}if(!inserted.direction&&signatures.direction&&(text.indexOf('DIRECTIONDESSOINS')>=0||text.indexOf('DIRECTIONOUCHEFDESERVICE')>=0)){appendSignatureImage_(p,signatures.direction,'direction');inserted.direction=true;}return false;}));if(signatures.responsable&&!inserted.responsable)throw new Error('EMPLACEMENT_SIGNATURE_RESPONSABLE_INTROUVABLE');}
+function appendSignatureImage_(container,dataUrl,name){container.appendText('\n');const bytes=Utilities.base64Decode(dataUrl.split(',')[1]);const image=container.appendInlineImage(Utilities.newBlob(bytes,'image/png','signature-'+name+'.png'));const width=145,height=Math.max(42,Math.round(image.getHeight()*width/image.getWidth()));image.setWidth(width).setHeight(Math.min(height,72));}
+function fillTableRatings_(body,criteria){body.getTables().forEach(table=>{for(let i=0;i<table.getNumRows();i++){const row=table.getRow(i);for(let j=0;j<row.getNumCells();j++){const label=clean_(row.getCell(j).getText()),criterion=EVAL_CRITERIA.find(c=>normalize_(c)===normalize_(label));if(!criterion)continue;const selected=EVAL_LEVELS.indexOf(criteria[criterion]);for(let k=0;k<EVAL_LEVELS.length&&j+1+k<row.getNumCells();k++)row.getCell(j+1+k).setText(k===selected?'X':'');}}}});}
+function replaceEverywhere_(doc,regex,replacement){const pattern=regex.source,safe=String(replacement).replace(/\$/g,'$$$$');documentSections_(doc).forEach(section=>{try{section.replaceText(pattern,safe);}catch(_){}});}
 function sha256Hex_(bytes){return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,bytes).map(b=>('0'+((b<0?b+256:b).toString(16))).slice(-2)).join('');}
-
-function openConvertedDocument_(fileId){
-  let lastError;
-  for(let attempt=0;attempt<6;attempt++){
-    if(attempt)Utilities.sleep(1000*attempt);
-    try{return DocumentApp.openById(fileId);}catch(err){lastError=err;}
-  }
-  throw new Error('DOCUMENT_CONVERTI_INACCESSIBLE: '+String(lastError&&lastError.message||lastError));
-}
-
-function convertWordTemplateToGoogleDoc_(name){
-  const template=DriveApp.getFileById(EVAL_CONFIG.TEMPLATE_ID);
-  try{return Drive.Files.create({name,mimeType:'application/vnd.google-apps.document',parents:[EVAL_CONFIG.DEST_FOLDER_ID]},template.getBlob(),{fields:'id,name,mimeType'});}
-  catch(err){throw new Error('CONVERSION_MODELE_WORD_ECHOUEE: '+String(err&&err.message||err));}
-}
-
-/** Test non destructif de configuration. */
-function testEvaluationConfiguration(){
-  const sh=evaluationSheet_(),template=DriveApp.getFileById(EVAL_CONFIG.TEMPLATE_ID);
-  DriveApp.getFolderById(EVAL_CONFIG.DEST_FOLDER_ID).getName();
-  if(typeof Drive==='undefined'||!Drive.Files)throw new Error('Activez le service avancé Google Drive API.');
-  const copy=convertWordTemplateToGoogleDoc_('TEST AUTORISATION - à supprimer');
-  try{const copiedDoc=openConvertedDocument_(copy.id);copiedDoc.getBody().getText();copiedDoc.saveAndClose();}
-  finally{DriveApp.getFileById(copy.id).setTrashed(true);}
-  console.log(JSON.stringify({ok:true,sheet:sh.getName(),columns:sh.getLastColumn(),source:template.getName(),template:EVAL_CONFIG.TEMPLATE_VERSION}));
-}
+function openConvertedDocument_(fileId){let lastError;for(let attempt=0;attempt<6;attempt++){if(attempt)Utilities.sleep(1000*attempt);try{return DocumentApp.openById(fileId);}catch(err){lastError=err;}}throw new Error('DOCUMENT_CONVERTI_INACCESSIBLE: '+String(lastError&&lastError.message||lastError));}
+function convertWordTemplateToGoogleDoc_(name){const template=DriveApp.getFileById(EVAL_CONFIG.TEMPLATE_ID);try{return Drive.Files.create({name,mimeType:'application/vnd.google-apps.document',parents:[EVAL_CONFIG.DEST_FOLDER_ID]},template.getBlob(),{fields:'id,name,mimeType'});}catch(err){throw new Error('CONVERSION_MODELE_WORD_ECHOUEE: '+String(err&&err.message||err));}}
+function testEvaluationConfiguration(){const sh=evaluationSheet_(),template=DriveApp.getFileById(EVAL_CONFIG.TEMPLATE_ID);DriveApp.getFolderById(EVAL_CONFIG.DEST_FOLDER_ID).getName();if(typeof Drive==='undefined'||!Drive.Files)throw new Error('Activez le service avancé Google Drive API.');const copy=convertWordTemplateToGoogleDoc_('TEST AUTORISATION - à supprimer');try{const copiedDoc=openConvertedDocument_(copy.id);copiedDoc.getBody().getText();copiedDoc.saveAndClose();}finally{DriveApp.getFileById(copy.id).setTrashed(true);}console.log(JSON.stringify({ok:true,sheet:sh.getName(),columns:sh.getLastColumn(),source:template.getName(),template:EVAL_CONFIG.TEMPLATE_VERSION}));}
