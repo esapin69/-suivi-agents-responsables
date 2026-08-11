@@ -1,28 +1,13 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="robots" content="noindex,nofollow">
-  <meta name="referrer" content="no-referrer">
-  <meta name="theme-color" content="#0d2433">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y='; script-src-attr 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0d2433">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y='; script-src-attr 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
   <script>document.documentElement.classList.add("auth-pending")</script>
-  <title>GHE · Contacts</title>
-  <link rel="stylesheet" href="style.css?v=20260811-portail-3">
+  <title>GHE · Contacts</title><link rel="stylesheet" href="style.css?v=20260811-appnav-2"><link rel="stylesheet" href="modules.css?v=20260811-2">
 </head>
 <body data-required-access="contacts">
-  <header class="topbar portal-topbar"><a class="portal-brand" href="/"><span class="portal-brand-mark">G</span><span><strong>GHE</strong><small>Contacts</small></span></a></header>
-  <main class="module-shell">
-    <div class="module-head"><a class="module-back" href="/">← Accueil</a></div>
-    <span class="portal-eyebrow">ANNUAIRE</span>
-    <h1 class="module-title">Contacts GHE</h1>
-    <p class="module-lead">Numéros, GHE et adresses e-mail lorsqu’elles sont renseignées. Recherche instantanée par nom, prénom ou numéro GHE.</p>
-    <input class="search-box" id="contactSearch" type="search" placeholder="Rechercher un nom, un GHE, un numéro…" autocomplete="off">
-    <div class="contact-note" id="contactStatus">Chargement de l’annuaire…</div>
-    <section class="contact-list" id="contactList"></section>
-  </main>
-  <script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260811-auth-4"></script>
-  <script src="contacts.js?v=20260811-1"></script>
-</body>
-</html>
+<header class="topbar portal-topbar"><a class="portal-brand" href="/"><span class="portal-brand-mark">G</span><span><strong>GHE</strong><small>Contacts</small></span></a></header>
+<main class="module-shell"><span class="portal-eyebrow">ANNUAIRE SÉCURISÉ</span><h1 class="module-title">Contacts GHE</h1><p class="module-lead">GHE, téléphones, DECT, e-mails et rôles. Les coordonnées restent dans la source centrale sécurisée et ne sont plus copiées dans GitHub.</p><input class="search-box" id="contactSearch" type="search" placeholder="Nom, GHE, téléphone, e-mail, service…" autocomplete="off"><div class="contact-note" id="contactStatus">Chargement de l’annuaire sécurisé…</div><section class="contact-list" id="contactList"></section></main>
+<script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260811-auth-6"></script><script src="contacts.js?v=20260811-2"></script>
+</body></html>
