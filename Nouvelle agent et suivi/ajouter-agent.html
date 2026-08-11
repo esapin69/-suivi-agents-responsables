@@ -20,79 +20,12 @@
 </section>
 <section class="success-card" id="successCard">
 <div class="kicker">Enregistrement confirmé</div><h2>✓ Agent créé et vérifié</h2><div id="successInfo"></div>
-<div class="btnrow spaced-actions">
-<a class="btn cyan" id="openAgent" href="#">Ouvrir la fiche</a>
-<a class="btn light" id="openFile" href="#" target="_blank" rel="noopener">Ouvrir le brouillon</a>
-<a class="btn light" href="ajouter-agent.html">Ajouter un autre agent</a>
-</div></section>
-</main><script src="app.js?v=20260810-auth-1"></script>
+<div class="btnrow spaced-actions"><a class="btn cyan" id="openAgent" href="#">Ouvrir la fiche</a><a class="btn light" id="openFile" href="#" target="_blank" rel="noopener">Ouvrir le brouillon</a><a class="btn light" href="ajouter-agent.html">Ajouter un autre agent</a></div></section>
+</main><script src="app.js?v=20260811-auth-6"></script>
 <script>
-const form=q("#agentForm"), status=q("#status"), btn=q("#submitBtn");
-const directorySelect=q("#directorySelect"), selectedAgent=q("#selectedAgent");
-let lastPayload=null;
-let directory=[];
-
-async function loadDirectory(){
-  try{
-    const data=await apiGet("listDirectory");
-    directory=data.agents||[];
-    directorySelect.innerHTML='<option value="">Choisir un agent…</option>'+directory.map((a,i)=>`<option value="${i}">${esc(a.nom)} ${esc(a.prenom)}${a.poste?` — ${esc(a.poste)}`:""}${a.suivi_existant?" — suivi déjà créé":""}</option>`).join("");
-    directorySelect.disabled=false;
-  }catch(e){
-    directory=[];
-    directorySelect.innerHTML='<option value="">Annuaire indisponible</option>';
-    directorySelect.disabled=true;
-    btn.disabled=true;
-    setStatus(status,"err","Impossible de charger l’annuaire central. Aucun dossier ne peut être créé tant que la liaison n’est pas rétablie.");
-  }
-}
-
-directorySelect.addEventListener("change",()=>{
-  const a=directorySelect.value===""?null:directory[Number(directorySelect.value)];
-  form.elements.nom.value=a?.nom||"";
-  form.elements.prenom.value=a?.prenom||"";
-  if(!a){selectedAgent.hidden=true;btn.disabled=false;return;}
-  selectedAgent.hidden=false;
-  selectedAgent.innerHTML=`<strong>${esc(a.nom)} ${esc(a.prenom)}</strong><span>${esc(a.poste||"Poste non renseigné")}</span>${a.suivi_existant?`<a class="btn light" href="agent.html?id=${encodeURIComponent(a.id_agent)}">Ouvrir le suivi existant</a>`:""}`;
-  btn.disabled=a.suivi_existant;
-  if(a.suivi_existant)setStatus(status,"warn","Le suivi de cet agent existe déjà. Ouvrez sa fiche au lieu de créer un doublon.");
-  else status.className="status";
-});
-
-async function submitAgent(force=false){
-  lastPayload=formObject(form);
-  if(force) lastPayload.force=true;
-  btn.disabled=true; btn.classList.add("loading");
-  setStatus(status,"warn","Enregistrement et vérification en cours…");
-  try{
-    const data=await apiPost("createAgent",lastPayload);
-    if(!data.ok){
-      if(data.code==="NOM_DEJA_PRESENT"){
-        const names=(data.candidates||[]).map(a=>`<strong>${esc(a.nom)} ${esc(a.prenom)}</strong>${a.matricule?` · matricule ${esc(a.matricule)}`:""}`).join("<br>");
-        setStatus(status,"warn",`Un agent portant ce nom existe déjà.<br>${names}<div class="btnrow duplicate-actions"><button type="button" class="btn light" id="forceCreate">Créer quand même</button><a class="btn light" href="suivre-agent.html">Rechercher l’agent</a></div>`);
-        q("#forceCreate").onclick=()=>submitAgent(true);
-        return;
-      }
-      if(data.code==="MATRICULE_EXISTANT"){
-        setStatus(status,"err",`Création bloquée : ce matricule est déjà associé à <strong>${esc(data.existing?.nom||"")} ${esc(data.existing?.prenom||"")}</strong>.`);
-        return;
-      }
-      setStatus(status,"err",esc(data.message||data.code||"Impossible de créer l’agent."));
-      return;
-    }
-    const a=data.agent;
-    q("#successInfo").innerHTML=`<p><strong>${esc(a.nom)} ${esc(a.prenom)}</strong><br>${a.matricule?`Matricule : ${esc(a.matricule)} · `:""}Statut : ${esc(a.verification||"")}</p><p>La ligne centrale et le fichier individuel ont été relus après création.</p>`;
-    q("#openAgent").href=`agent.html?id=${encodeURIComponent(a.id_agent)}`;
-    q("#openFile").href=a.fichier_brouillon_url||"#";
-    q("#formPanel").style.display="none";
-    q("#successCard").classList.add("show");
-    q("#successCard").scrollIntoView({behavior:"smooth"});
-  }catch(e){
-    setStatus(status,"err","Échec de la liaison : "+esc(e.message));
-  }finally{
-    btn.disabled=false; btn.classList.remove("loading");
-  }
-}
-form.addEventListener("submit",e=>{e.preventDefault(); if(form.reportValidity()) submitAgent(false);});
-loadDirectory();
+const form=q("#agentForm"), status=q("#status"), btn=q("#submitBtn");const directorySelect=q("#directorySelect"), selectedAgent=q("#selectedAgent");let lastPayload=null;let directory=[];
+async function loadDirectory(){try{const data=await apiGet("listDirectory");directory=(data.agents||[]).filter(a=>!a.contact_only&&a.type!=="service");directorySelect.innerHTML='<option value="">Choisir un agent…</option>'+directory.map((a,i)=>`<option value="${i}">${esc(a.nom)} ${esc(a.prenom)}${a.poste?` — ${esc(a.poste)}`:""}${a.suivi_existant?" — suivi déjà créé":""}</option>`).join("");directorySelect.disabled=false}catch(e){directory=[];directorySelect.innerHTML='<option value="">Annuaire indisponible</option>';directorySelect.disabled=true;btn.disabled=true;setStatus(status,"err","Impossible de charger l’annuaire central. Aucun dossier ne peut être créé tant que la liaison n’est pas rétablie.")}}
+directorySelect.addEventListener("change",()=>{const a=directorySelect.value===""?null:directory[Number(directorySelect.value)];form.elements.nom.value=a?.nom||"";form.elements.prenom.value=a?.prenom||"";if(!a){selectedAgent.hidden=true;btn.disabled=false;return}selectedAgent.hidden=false;selectedAgent.innerHTML=`<strong>${esc(a.nom)} ${esc(a.prenom)}</strong><span>${esc(a.poste||"Poste non renseigné")}</span>${a.suivi_existant?`<a class="btn light" href="agent.html?id=${encodeURIComponent(a.id_agent)}">Ouvrir le suivi existant</a>`:""}`;btn.disabled=a.suivi_existant;if(a.suivi_existant)setStatus(status,"warn","Le suivi de cet agent existe déjà. Ouvrez sa fiche au lieu de créer un doublon.");else status.className="status"});
+async function submitAgent(force=false){lastPayload=formObject(form);if(force)lastPayload.force=true;btn.disabled=true;btn.classList.add("loading");setStatus(status,"warn","Enregistrement et vérification en cours…");try{const data=await apiPost("createAgent",lastPayload);if(!data.ok){if(data.code==="NOM_DEJA_PRESENT"){const names=(data.candidates||[]).map(a=>`<strong>${esc(a.nom)} ${esc(a.prenom)}</strong>${a.matricule?` · matricule ${esc(a.matricule)}`:""}`).join("<br>");setStatus(status,"warn",`Un agent portant ce nom existe déjà.<br>${names}<div class="btnrow duplicate-actions"><button type="button" class="btn light" id="forceCreate">Créer quand même</button><a class="btn light" href="suivre-agent.html">Rechercher l’agent</a></div>`);q("#forceCreate").onclick=()=>submitAgent(true);return}if(data.code==="MATRICULE_EXISTANT"){setStatus(status,"err",`Création bloquée : ce matricule est déjà associé à <strong>${esc(data.existing?.nom||"")} ${esc(data.existing?.prenom||"")}</strong>.`);return}setStatus(status,"err",esc(data.message||data.code||"Impossible de créer l’agent."));return}const a=data.agent;q("#successInfo").innerHTML=`<p><strong>${esc(a.nom)} ${esc(a.prenom)}</strong><br>${a.matricule?`Matricule : ${esc(a.matricule)} · `:""}Statut : ${esc(a.verification||"")}</p><p>La ligne centrale et le fichier individuel ont été relus après création.</p>`;q("#openAgent").href=`agent.html?id=${encodeURIComponent(a.id_agent)}`;q("#openFile").href=a.fichier_brouillon_url||"#";q("#formPanel").style.display="none";q("#successCard").classList.add("show");q("#successCard").scrollIntoView({behavior:"smooth"})}catch(e){setStatus(status,"err","Échec de la liaison : "+esc(e.message))}finally{btn.disabled=false;btn.classList.remove("loading")}}
+form.addEventListener("submit",e=>{e.preventDefault();if(form.reportValidity())submitAgent(false)});loadDirectory();
 </script></body></html>
