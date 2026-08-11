@@ -2,26 +2,40 @@
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y='; script-src-attr 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
 <script>document.documentElement.classList.add("auth-pending")</script>
-<title>Espace responsables · GHE</title><link rel="stylesheet" href="style.css?v=20260810-auth-1"></head>
+<title>Portail GHE</title><link rel="stylesheet" href="style.css?v=20260811-portail-1"></head>
 <body>
-<header class="topbar"><div class="brand"><b>GHE</b> · ESPACE RESPONSABLES</div><div class="micro">OUTIL INTERNE</div></header>
+<header class="topbar"><div class="brand"><b>GHE</b> · MON ESPACE</div><div class="micro">OUTIL INTERNE</div></header>
 <main class="shell">
   <section class="hero">
-    <div class="kicker">Organisation · suivi · terrain</div>
-    <h1>Accès rapide</h1>
-    <p>Deux outils, deux actions simples : suivre les agents ou consigner rapidement une information terrain.</p>
+    <div class="kicker">Accès personnel</div>
+    <h1>Mon accueil</h1>
+    <p>Seules les rubriques autorisées pour votre profil apparaissent ici.</p>
   </section>
   <section class="cards">
-    <a class="card follow" href="Nouvelle%20agent%20et%20suivi/">
+    <a class="card follow" data-access="suivi_agents" href="Nouvelle%20agent%20et%20suivi/" hidden>
       <div class="icon">👤</div><h2>Suivi des agents</h2>
-      <p>Créer un dossier, retrouver un agent, modifier ses informations et poursuivre son parcours de suivi.</p>
-      <span class="arrow">→</span>
+      <p>Créer, retrouver et poursuivre le suivi d’un agent.</p><span class="arrow">→</span>
     </a>
-    <a class="card notes" href="https://sites.google.com/view/hfme-notes/notes-rapides" target="_blank" rel="noopener">
+    <a class="card notes" data-access="notes" href="https://sites.google.com/view/hfme-notes/notes-rapides" target="_blank" rel="noopener" hidden>
       <div class="icon">✍️</div><h2>Prendre des notes</h2>
-      <p>Ouvrir directement l’outil Notes rapides pour consigner ou consulter une information.</p>
-      <span class="arrow">↗</span>
+      <p>Consigner rapidement une information terrain.</p><span class="arrow">↗</span>
+    </a>
+    <a class="card" data-access="planning" href="https://planning.esapin.com/" target="_self" hidden>
+      <div class="icon">📅</div><h2>Planning</h2>
+      <p>Voir son planning et accéder aux outils calendrier.</p><span class="arrow">→</span>
+    </a>
+    <a class="card" data-access="contacts" href="https://planning.esapin.com/contacts-ghe.html" target="_self" hidden>
+      <div class="icon">☎️</div><h2>Contacts</h2>
+      <p>Retrouver rapidement les contacts utiles du GHE.</p><span class="arrow">→</span>
+    </a>
+    <a class="card" data-access="nouvel_arrivant" href="https://nouvel-agent.esapin.com/index.html" target="_self" hidden>
+      <div class="icon">🧭</div><h2>Nouvel arrivant</h2>
+      <p>Repères, attendus, contacts et parcours d’intégration.</p><span class="arrow">→</span>
+    </a>
+    <a class="card" data-access="nouveau_stagiaire" href="nouveau-stagiaire.html" hidden>
+      <div class="icon">🎓</div><h2>Nouveau stagiaire</h2>
+      <p>Espace dédié à l’accueil et au suivi des stagiaires.</p><span class="arrow">→</span>
     </a>
   </section>
-  <div class="foot">Espace de travail interne. Il facilite l’organisation quotidienne et ne se substitue pas aux outils ou procédures institutionnels.</div>
-</main><script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260810-auth-1"></script></body></html>
+  <div class="foot">Les accès sont pilotés par l’annuaire. Une rubrique absente de votre profil n’est pas proposée.</div>
+</main><script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260811-portail-1"></script></body></html>
