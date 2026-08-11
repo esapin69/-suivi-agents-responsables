@@ -1,115 +1,31 @@
 const PLANNING_BRIDGE="https://script.google.com/macros/s/AKfycbwrhifE-4wl-YvKOjJI8HZ_g_ota7tajTKLY3jvLKEF9AvSPjIbVpqcSkSRcl5OdWV9/exec";
-let planningAgentKey="";
-let planningEvents=[];
-let planningType="";
+let planningAgentKey="",planningAgentName="",planningEvents=[],planningType="";
 const $=id=>document.getElementById(id);
-
+const MONTHS=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const OFFICIAL_LINKS={
+jour:{"01.2026":"https://drive.google.com/file/d/11-uvt93i8gz5UNio9llYzyQCv0Np9cJ1/view","02.2026":"https://drive.google.com/file/d/1jIKLsS8RHAklpqmIL38subJaERuC9Pb-/view","03.2026":"https://drive.google.com/file/d/1ONglofX0WzOTWe73EU1bq8qwhOFGU64s/view","04.2026":"https://drive.google.com/file/d/1Twe6VZOTQMn9SK59Y55PUeVik3cesw2F/view","05.2026":"https://drive.google.com/file/d/10m7iyIkecXk429bCiIXatuzf7a6PXfX/view","06.2026":"https://drive.google.com/file/d/1Q3-299eK3ZsG12ekiy16C8um1lg3PI3t/view","07.2026":"https://drive.google.com/file/d/166YDQ_zk6W0Du7LtFhBcBj1LCwREwM8Q/view","08.2026":"https://drive.google.com/file/d/1RC40GIH5p-HUmQHjogu5tH_9OB9T8L3s/view","09.2026":"https://drive.google.com/file/d/1Ktttvrf1Q0S640mRLhw-ai6hLrgz9ytq/view","10.2026":"https://drive.google.com/file/d/1AEGC3FNApbJP8Cef8j58WA_8cPRyEZ0-/view","11.2026":"https://drive.google.com/file/d/1YGL7FDAOzpEOybmRxLl8_FHRmvWt1JXI/view","12.2026":"https://drive.google.com/file/d/1wVHL780pLKFG0bTkE3E9OJK1C2ybxH0a/view"},
+nuit:{"01.2026":"https://drive.google.com/file/d/1_bitf1WiI1iF5I88baLLgeMrbrhbr9to/view","02.2026":"https://drive.google.com/file/d/1fuf7oliHfTIQjP-t1aV2F_4jay4D81TH/view","03.2026":"https://drive.google.com/file/d/1-xmobXzwQBQ8vrS7ko-hIylV8pQPBXLA/view","04.2026":"https://drive.google.com/file/d/1eTICRIxNWp-NBzKFBycjRu6GS1CqIyrG/view","05.2026":"https://drive.google.com/file/d/14ObYT741gXH-raBxpo_viz4IfP46p9Ku/view","06.2026":"https://drive.google.com/file/d/1Cxo-cLHJ784KmD5rz1-1IU-hBW5BGxsq/view","07.2026":"https://drive.google.com/file/d/1yHqoUrA8EtcomWtuGIJHog3M59XskqD9/view","08.2026":"https://drive.google.com/file/d/1_f0OMycnkDwagQGyaonRBkc8bonXR7Lc/view","09.2026":"https://drive.google.com/file/d/1IvQVQKeo0W-j5tpf7yzSYxwpqFconjqP/view","10.2026":"https://drive.google.com/file/d/1gKoeDEFGW8XtdZU63KCIWkN3iJvhbubT/view","11.2026":"https://drive.google.com/file/d/112K6bHemoAnCninkueoPbNlzwGhPwcNp/view","12.2026":"https://drive.google.com/file/d/1CiGRwL2PLs8MMTyrAiTFm-ix1rcEsebC/view"},
+chef:{"01.2026":"https://drive.google.com/file/d/17Vpp63QiW5rDdCPggt4eINS4ekquwAKZ/view","02.2026":"https://drive.google.com/file/d/1f-lxseDTX_lISLSgigGFo1RCwa-uFatL/view","03.2026":"https://drive.google.com/file/d/13q9oAt2ke6X28HxHtURgWYgfPQz7j6Id/view","04.2026":"https://drive.google.com/file/d/19lGHEgAW5Ks5Z1ZxRqB4gGBX0gEeMW3e/view","05.2026":"https://drive.google.com/file/d/1UBRBG7dBnu2uwOTfWJ8Sn7mthwIIm1GN/view","06.2026":"https://drive.google.com/file/d/1TJtZO9DHeFmTbWmlZ2HSoycP16GPrNHw/view","07.2026":"https://drive.google.com/file/d/1YLMTbwVQU8uLHbb-eZXca5cuO5UcUPS1/view","08.2026":"https://drive.google.com/file/d/1OeSzDpz24sLfaf0jgIHHpolXJl1PmBF3/view","09.2026":"https://drive.google.com/file/d/1N-31hpHUSkGQYoa_LMkltH6j-KAR85aT/view","10.2026":"https://drive.google.com/file/d/1FYj0gSeZzPqUH6l9GVurVWd3KL0UKpyV/view","11.2026":"https://drive.google.com/file/d/1gDaYoUpWcp3siNs4CMbexQrrPsRxtb51/view","12.2026":"https://drive.google.com/file/d/1W-UxjyOZfNrO6Hx8pkqvgRCVR6TUEDdR/view"}
+};
 function norm(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g," ").trim()}
 function stableUrl(mode,extra={}){const u=new URL(PLANNING_BRIDGE);u.searchParams.set("mode",mode);Object.entries(extra).forEach(([k,v])=>u.searchParams.set(k,v));return u.toString()}
 function webcal(url){return url.replace(/^https:\/\//i,"webcal://")}
 function html(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
-
-function normalizeAgent(a){
-  const key=a.agent||a.key||"";
-  const name=a.nom||a.nomComplet||a.nom_complet||a.fullName||String(key).replace(/_/g," ");
-  const type=norm(a.type_planning||a.type||a.equipe||a.team||"");
-  return {key,name,type};
-}
-
-function inferPlanningType(user,agent){
-  const explicit=norm(agent?.type||"");
-  const poste=norm(user?.poste||"");
-  if(explicit.includes("NUIT")||explicit==="NIGHT")return "nuit";
-  if(explicit.includes("CHEF")||explicit.includes("RESPONSABLE"))return "chef";
-  if(explicit.includes("JOUR")||explicit==="DAY")return "jour";
-  if(poste.includes("NUIT"))return "nuit";
-  if(poste.includes("CHEF")||poste.includes("RESPONSABLE"))return "chef";
-  return "jour";
-}
-
+function normalizeAgent(a){const key=a.agent||a.key||"";const name=a.nom||a.nomComplet||a.nom_complet||a.fullName||String(key).replace(/_/g," ");const type=norm(a.type_planning||a.type||a.equipe||a.team||"");return{key,name,type}}
+function inferPlanningType(user,agent){const explicit=norm(agent?.type||"");const poste=norm(user?.poste||"");if(explicit.includes("NUIT"))return"nuit";if(explicit.includes("CHEF")||explicit.includes("RESPONSABLE"))return"chef";if(explicit.includes("JOUR"))return"jour";if(poste.includes("NUIT"))return"nuit";if(poste.includes("CHEF")||poste.includes("RESPONSABLE"))return"chef";return"jour"}
 function planningTypeLabel(type){return type==="nuit"?"Nuit":type==="chef"?"Chefs":"Jour"}
-
-async function resolveCurrentAgent(user){
-  const u=new URL(PLANNING_BRIDGE);u.searchParams.set("mode","list");u.searchParams.set("t",Date.now());
-  const response=await fetch(u,{cache:"no-store"});
-  if(!response.ok)throw new Error("Liste des agents indisponible");
-  const data=await response.json();
-  const agents=Array.isArray(data?.agents)?data.agents.map(normalizeAgent):[];
-  const targets=[norm(`${user.nom||""} ${user.prenom||""}`),norm(`${user.prenom||""} ${user.nom||""}`)];
-  const matches=agents.filter(a=>targets.includes(norm(a.name))||targets.includes(norm(String(a.key).replace(/_/g," "))));
-  if(matches.length!==1)throw new Error("Votre planning personnel n’a pas encore été associé automatiquement à ce compte.");
-  return matches[0];
-}
-
+async function resolveCurrentAgent(user){const u=new URL(PLANNING_BRIDGE);u.searchParams.set("mode","list");u.searchParams.set("t",Date.now());const r=await fetch(u,{cache:"no-store"});if(!r.ok)throw new Error("Liste des agents indisponible");const d=await r.json();const agents=Array.isArray(d?.agents)?d.agents.map(normalizeAgent):[];const targets=[norm(`${user.nom||""} ${user.prenom||""}`),norm(`${user.prenom||""} ${user.nom||""}`)];const matches=agents.filter(a=>targets.includes(norm(a.name))||targets.includes(norm(String(a.key).replace(/_/g," "))));if(matches.length!==1)throw new Error("Votre planning personnel n’a pas encore été associé automatiquement à ce compte.");return matches[0]}
 function unfoldIcs(text){return String(text||"").replace(/\r\n[ \t]/g,"").replace(/\n[ \t]/g,"")}
-function parseIcsDate(raw){
-  const value=String(raw||"").replace(/^.*:/,"").trim();
-  const m=value.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?)?/);
-  if(!m)return null;
-  return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),Number(m[4]||0),Number(m[5]||0),Number(m[6]||0));
-}
+function parseIcsDate(raw){const value=String(raw||"").replace(/^.*:/,"").trim();const m=value.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?)?/);return m?new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0)):null}
 function unescapeIcs(v){return String(v||"").replace(/\\n/gi," · ").replace(/\\,/g,",").replace(/\\;/g,";").replace(/\\\\/g,"\\")}
-function parseIcs(text){
-  const source=unfoldIcs(text);const blocks=source.split("BEGIN:VEVENT").slice(1);const events=[];
-  blocks.forEach(block=>{
-    const part=block.split("END:VEVENT")[0];const lines=part.split(/\r?\n/);const get=prefix=>{const l=lines.find(x=>x.startsWith(prefix));return l?l.slice(l.indexOf(":")+1):""};
-    const startLine=lines.find(x=>x.startsWith("DTSTART"))||"";const endLine=lines.find(x=>x.startsWith("DTEND"))||"";
-    const start=parseIcsDate(startLine),end=parseIcsDate(endLine);if(!start)return;
-    events.push({start,end,summary:unescapeIcs(get("SUMMARY")),description:unescapeIcs(get("DESCRIPTION")),location:unescapeIcs(get("LOCATION"))});
-  });
-  return events.sort((a,b)=>a.start-b.start);
-}
-function fmtDate(d){return d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}
-function fmtTime(d){return d?d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}):""}
-function renderPlanning(){
-  const now=new Date();now.setHours(0,0,0,0);
-  const upcoming=planningEvents.filter(e=>e.start>=now).slice(0,70);
-  const view=$("planningView");
-  if(!upcoming.length){view.innerHTML='<div class="contact-note">Aucun événement futur reçu dans le flux calendrier.</div>';view.hidden=false;return}
-  view.innerHTML=`<div class="native-planning-head"><div><span class="portal-eyebrow">APERÇU</span><h2>Mes prochains jours</h2></div><span>${upcoming.length} éléments</span></div><div class="native-days">${upcoming.map(e=>`<article class="native-day"><div class="native-date">${html(fmtDate(e.start))}</div><div class="native-shift"><strong>${html(e.summary||"Planning")}</strong>${e.end?`<span>${html(fmtTime(e.start))} – ${html(fmtTime(e.end))}</span>`:""}${e.location?`<small>${html(e.location)}</small>`:""}</div></article>`).join("")}</div>`;
-  view.hidden=false;view.scrollIntoView({behavior:"smooth",block:"start"});
-}
-async function loadPlanningView(){
-  const status=$("planningStatus");status.hidden=false;status.textContent="Chargement du planning…";
-  try{
-    const response=await fetch(stableUrl("ics",{agent:planningAgentKey}),{cache:"no-store"});const text=await response.text();
-    if(!response.ok||!text.includes("BEGIN:VCALENDAR"))throw new Error("Flux calendrier indisponible");
-    planningEvents=parseIcs(text);status.hidden=true;renderPlanning();
-  }catch(e){status.textContent=e.message||"Planning indisponible."}
-}
-async function copyAndroid(){
-  const url=stableUrl("ics",{agent:planningAgentKey});
-  try{await navigator.clipboard.writeText(url);$("planningStatus").hidden=false;$("planningStatus").textContent="Lien permanent copié. Dans Google Agenda sur le Web : Autres agendas → + → À partir de l’URL."}
-  catch(_){$("planningStatus").hidden=false;$("planningStatus").textContent=url}
-}
-function openOfficial(){
-  if(!planningType)return;
-  // Une seule destination, déterminée par le compte connecté : jamais de choix Jour/Nuit/Chef.
-  window.location.href=`https://planning.esapin.com/mois.html?type=${encodeURIComponent(planningType)}`;
-}
-
-$("officialCard").addEventListener("click",openOfficial);
-$("officialCard").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openOfficial()}});
-$("showPlanning").addEventListener("click",loadPlanningView);
-$("printPlanning").addEventListener("click",async()=>{if($("planningView").hidden)await loadPlanningView();setTimeout(()=>window.print(),250)});
-$("androidSubscribe").addEventListener("click",copyAndroid);
-
-GHEAuth.ready.then(async user=>{
-  try{
-    const agent=await resolveCurrentAgent(user);
-    planningAgentKey=agent.key;
-    planningType=inferPlanningType(user,agent);
-    const typeLabel=planningTypeLabel(planningType);
-    $("planningLead").textContent=`${agent.name} · planning ${typeLabel} reconnu automatiquement.`;
-    $("officialTitle").textContent=`Planning officiel · ${typeLabel}`;
-    $("officialText").textContent=`La vue ${typeLabel} correspondant à votre profil est sélectionnée automatiquement.`;
-    $("officialCard").setAttribute("aria-disabled","false");
-    const ics=stableUrl("ics",{agent:planningAgentKey});
-    $("appleSubscribe").href=webcal(ics);
-    $("personalActions").hidden=false;
-  }catch(e){
-    $("planningLead").textContent=e.message;
-    $("planningStatus").hidden=false;
-    $("planningStatus").textContent="L’association personnelle doit être corrigée dans la source. Aucun choix manuel Jour/Nuit/Chef ne sera proposé.";
-  }
-});
+function parseIcs(text){const blocks=unfoldIcs(text).split("BEGIN:VEVENT").slice(1),events=[];blocks.forEach(block=>{const lines=block.split("END:VEVENT")[0].split(/\r?\n/),get=p=>{const l=lines.find(x=>x.startsWith(p));return l?l.slice(l.indexOf(":")+1):""};const start=parseIcsDate(lines.find(x=>x.startsWith("DTSTART"))||""),end=parseIcsDate(lines.find(x=>x.startsWith("DTEND"))||"");if(start)events.push({start,end,summary:unescapeIcs(get("SUMMARY")),location:unescapeIcs(get("LOCATION"))})});return events.sort((a,b)=>a.start-b.start)}
+function fmtDate(d){return d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}function fmtTime(d){return d?d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}):""}
+function renderPlanning(){const now=new Date();now.setHours(0,0,0,0);const upcoming=planningEvents.filter(e=>e.start>=now).slice(0,70),view=$("planningView");if(!upcoming.length){view.innerHTML='<div class="contact-note">Aucun événement futur reçu dans le calendrier.</div>';view.hidden=false;return}view.innerHTML=`<div class="native-planning-head"><div><span class="portal-eyebrow">APERÇU</span><h2>Mes prochains jours</h2></div><span>${upcoming.length} éléments</span></div><div class="native-days">${upcoming.map(e=>`<article class="native-day"><div class="native-date">${html(fmtDate(e.start))}</div><div class="native-shift"><strong>${html(e.summary||"Planning")}</strong>${e.end?`<span>${html(fmtTime(e.start))} – ${html(fmtTime(e.end))}</span>`:""}${e.location?`<small>${html(e.location)}</small>`:""}</div></article>`).join("")}</div>`;view.hidden=false;view.scrollIntoView({behavior:"smooth",block:"start"})}
+async function loadPlanningView(){const s=$("planningStatus");s.hidden=false;s.textContent="Chargement du planning…";try{const r=await fetch(stableUrl("ics",{agent:planningAgentKey}),{cache:"no-store"}),text=await r.text();if(!r.ok||!text.includes("BEGIN:VCALENDAR"))throw new Error("Flux calendrier indisponible");planningEvents=parseIcs(text);s.hidden=true;renderPlanning()}catch(e){s.textContent=e.message||"Planning indisponible."}}
+async function copyAndroid(){const url=stableUrl("ics",{agent:planningAgentKey});try{await navigator.clipboard.writeText(url);$("planningStatus").hidden=false;$("planningStatus").textContent="Lien permanent copié. Dans Google Agenda sur le Web : Autres agendas → + → À partir de l’URL."}catch(_){$("planningStatus").hidden=false;$("planningStatus").textContent=url}}
+function monthKey(i){return String(i+1).padStart(2,"0")+".2026"}
+function renderMonthChooser(kind){const title=kind==="official"?`Planning officiel · ${planningTypeLabel(planningType)}`:"PDF individuel · "+planningAgentName;$("monthChooserTitle").textContent=title;$("monthEyebrow").textContent=kind==="official"?"PDF OFFICIEL DRIVE":"MON PDF DRIVE";$("monthGrid").innerHTML=MONTHS.map((m,i)=>`<button class="month-button" type="button" data-month="${monthKey(i)}" data-kind="${kind}"><strong>${m}</strong><small>2026</small></button>`).join("");$("monthChooser").hidden=false;$("monthChooser").scrollIntoView({behavior:"smooth",block:"start"})}
+async function openMonth(kind,key){const status=$("planningStatus");if(kind==="official"){const url=OFFICIAL_LINKS?.[planningType]?.[key];if(!url){status.hidden=false;status.textContent="PDF officiel indisponible pour ce mois.";return}window.open(url,"_blank","noopener");return}status.hidden=false;status.textContent="Recherche du PDF individuel dans Drive…";try{const u=new URL(PLANNING_BRIDGE);u.searchParams.set("mode","pdf_agent");u.searchParams.set("agent",planningAgentKey);u.searchParams.set("mois",key);u.searchParams.set("t",Date.now());const r=await fetch(u,{cache:"no-store"});const d=await r.json();if(!r.ok||d?.ok===false||!d?.lien_pdf)throw new Error(d?.erreur||"PDF indisponible");status.hidden=true;window.open(d.lien_pdf,"_blank","noopener")}catch(e){status.textContent=e.message||"PDF indisponible."}}
+function cardKeyActivate(id,fn){const el=$(id);el.addEventListener("click",fn);el.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();fn()}})}
+cardKeyActivate("personalCard",loadPlanningView);cardKeyActivate("officialCard",()=>planningType&&renderMonthChooser("official"));cardKeyActivate("pdfCard",()=>planningAgentKey&&renderMonthChooser("personal"));$("showPlanning").addEventListener("click",loadPlanningView);$("androidSubscribe").addEventListener("click",copyAndroid);$("calendarCard").addEventListener("click",()=>$("personalActions").scrollIntoView({behavior:"smooth"}));$("monthClose").addEventListener("click",()=>$("monthChooser").hidden=true);$("monthGrid").addEventListener("click",e=>{const b=e.target.closest("[data-month]");if(b)openMonth(b.dataset.kind,b.dataset.month)});
+GHEAuth.ready.then(async user=>{try{const agent=await resolveCurrentAgent(user);planningAgentKey=agent.key;planningAgentName=agent.name;planningType=inferPlanningType(user,agent);const label=planningTypeLabel(planningType);$("planningLead").textContent=`${agent.name} · profil ${label} reconnu automatiquement.`;$("officialTitle").textContent=`Planning officiel · ${label}`;$("officialText").textContent=`Choisissez le mois : le PDF officiel ${label} s’ouvre directement dans Drive.`;$("officialCard").setAttribute("aria-disabled","false");const ics=stableUrl("ics",{agent:planningAgentKey});$("appleSubscribe").href=webcal(ics);$("personalActions").hidden=false}catch(e){$("planningLead").textContent=e.message;$("planningStatus").hidden=false;$("planningStatus").textContent="L’association personnelle doit être corrigée dans la source. Aucun choix manuel Jour/Nuit/Chef ne sera proposé."}});
