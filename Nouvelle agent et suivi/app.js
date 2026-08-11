@@ -45,6 +45,7 @@ function requiredAccessForPage() {
   const path = normalizedPath();
   if (/\/planning\.html$/.test(path)) return "planning";
   if (/\/contacts\.html$/.test(path)) return "contacts";
+  if (/\/esprit-equipe\.html$/.test(path)) return "esprit_d_equipe";
   if (/\/nouveau-stagiaire\.html$/.test(path)) return "nouveau_stagiaire";
   if (path.includes("/Nouvelle agent et suivi/") && !/\/connexion\.html$/.test(path)) return "suivi_des_agents";
   return "";
@@ -114,6 +115,7 @@ function portalModuleLabel(){
   const path=normalizedPath();
   if(/\/planning\.html$/.test(path))return "Planning";
   if(/\/contacts\.html$/.test(path))return "Contacts";
+  if(/\/esprit-equipe\.html$/.test(path))return "Esprit d’équipe";
   if(/\/nouveau-stagiaire\.html$/.test(path))return "Nouveau stagiaire";
   if(path.includes("/Nouvelle agent et suivi/"))return "Suivi des agents";
   return "Mon espace";
@@ -127,14 +129,33 @@ function installPortalHeader(user){
   header.innerHTML=`<a href="/"><span class="ghe-portal-header-mark">G</span><span class="ghe-portal-header-copy"><strong>${portalModuleLabel()}</strong><small>GHE · Portail terrain</small></span></a><span class="ghe-portal-header-user">${esc(user.display_name||"")}</span>`;
   document.body.insertBefore(header,document.body.firstChild);
 }
+function portalMenuItems(user){
+  return [
+    ["/Nouvelle%20agent%20et%20suivi/","◎","Suivi des agents","suivi_des_agents"],
+    ["https://sites.google.com/view/hfme-notes/notes-rapides","✎","Prendre des notes","prendre_des_notes",true],
+    ["/planning.html","▦","Planning","planning"],
+    ["/esprit-equipe.html","👥","Esprit d’équipe","esprit_d_equipe"],
+    ["/contacts.html","☎","Contacts","contacts"],
+    ["https://nouvel-agent.esapin.com/index.html","⌖","Nouvel arrivant","nouvel_arrivant",true],
+    ["/nouveau-stagiaire.html","◇","Nouveau stagiaire","nouveau_stagiaire"]
+  ].filter(item=>hasAccess(user,item[3]));
+}
 function installPortalNavigation(user) {
   if (AUTH_PAGE || document.getElementById("ghePortalDock")) return;
   const style = document.createElement("style");
-  style.textContent = `.ghe-portal-dock{position:fixed;z-index:9999;left:50%;bottom:max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:6px;align-items:center;padding:7px;background:rgba(15,31,45,.93);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.16);border-radius:19px;box-shadow:0 14px 42px rgba(5,20,30,.25)}.ghe-portal-dock a{min-width:50px;min-height:44px;padding:7px 10px;border-radius:13px;color:#fff;text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:700 10px/1.05 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}.ghe-portal-dock a:hover,.ghe-portal-dock a:focus-visible{background:rgba(255,255,255,.13)}.ghe-portal-dock .ico{font-size:18px}.ghe-portal-dock .home-link{background:#14a9d2}@media(min-width:820px){.ghe-portal-dock{bottom:18px}.ghe-portal-dock a{min-width:68px}}`;
+  style.textContent = `.ghe-portal-dock{position:fixed;z-index:9999;left:50%;bottom:max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);display:grid;grid-template-columns:repeat(3,1fr);gap:5px;width:min(310px,calc(100% - 28px));padding:7px;background:rgba(15,31,45,.94);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.16);border-radius:20px;box-shadow:0 14px 42px rgba(5,20,30,.25)}.ghe-portal-dock button,.ghe-portal-dock a{border:0;min-height:47px;padding:6px 9px;border-radius:14px;background:transparent;color:#fff;text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font:750 10px/1.05 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;cursor:pointer}.ghe-portal-dock .ico{font-size:18px}.ghe-portal-dock .home-link{background:#14a9d2}.ghe-menu-backdrop{position:fixed;inset:0;z-index:9998;background:rgba(5,18,27,.48);backdrop-filter:blur(4px);display:none}.ghe-menu-backdrop.open{display:block}.ghe-menu-sheet{position:absolute;left:50%;bottom:max(82px,calc(72px + env(safe-area-inset-bottom)));transform:translateX(-50%);width:min(520px,calc(100% - 28px));max-height:72vh;overflow:auto;padding:14px;background:#f7fafb;border:1px solid #cfdde3;border-radius:23px;box-shadow:0 24px 70px rgba(5,20,30,.3)}.ghe-menu-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:4px 3px 12px}.ghe-menu-head strong{font:900 18px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#102331}.ghe-menu-close{border:0;width:38px;height:38px;border-radius:12px;background:#e9f0f3;color:#102331;font-size:20px;font-weight:900}.ghe-menu-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ghe-menu-list a{min-height:82px;padding:12px;border:1px solid #dbe5e9;border-radius:16px;background:#fff;color:#102331;text-decoration:none;display:flex;flex-direction:column;justify-content:center;gap:7px;font:850 13px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}.ghe-menu-list a span{font-size:22px}@media(max-width:520px){.ghe-menu-list{grid-template-columns:1fr}.ghe-menu-sheet{max-height:68vh}}`;
   document.head.appendChild(style);
-  const items = [["/","⌂","Accueil",true],["/planning.html","▦","Planning",hasAccess(user,"planning")],["/contacts.html","☎","Contacts",hasAccess(user,"contacts")],["/Nouvelle%20agent%20et%20suivi/","◎","Suivi",hasAccess(user,"suivi_des_agents")],["/nouveau-stagiaire.html","◇","Stagiaire",hasAccess(user,"nouveau_stagiaire")]].filter(x => x[3]);
   const nav = document.createElement("nav"); nav.id = "ghePortalDock"; nav.className = "ghe-portal-dock"; nav.setAttribute("aria-label","Navigation principale");
-  nav.innerHTML = items.map((x,i)=>`<a href="${x[0]}" class="${i===0?'home-link':''}"><span class="ico">${x[1]}</span><span>${x[2]}</span></a>`).join(""); document.body.appendChild(nav);
+  nav.innerHTML = `<button type="button" id="gheBack"><span class="ico">←</span><span>Retour</span></button><a href="/" class="home-link"><span class="ico">⌂</span><span>Accueil</span></a><button type="button" id="gheMenuOpen"><span class="ico">☰</span><span>Menu</span></button>`;
+  const backdrop=document.createElement("div"); backdrop.id="gheMenuBackdrop"; backdrop.className="ghe-menu-backdrop";
+  const items=portalMenuItems(user);
+  backdrop.innerHTML=`<div class="ghe-menu-sheet" role="dialog" aria-modal="true" aria-label="Menu des rubriques"><div class="ghe-menu-head"><strong>Mes rubriques</strong><button type="button" class="ghe-menu-close" id="gheMenuClose" aria-label="Fermer">×</button></div><div class="ghe-menu-list">${items.map(x=>`<a href="${x[0]}"${x[4]?' target="_blank" rel="noopener"':''}><span>${x[1]}</span>${esc(x[2])}</a>`).join("")}</div></div>`;
+  document.body.append(backdrop,nav);
+  document.getElementById("gheBack").addEventListener("click",()=>{if(history.length>1)history.back();else location.href="/"});
+  const open=()=>backdrop.classList.add("open"),close=()=>backdrop.classList.remove("open");
+  document.getElementById("gheMenuOpen").addEventListener("click",open);
+  document.getElementById("gheMenuClose").addEventListener("click",close);
+  backdrop.addEventListener("click",e=>{if(e.target===backdrop)close()});
 }
 
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c])); }
