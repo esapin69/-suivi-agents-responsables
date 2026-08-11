@@ -1,0 +1,1 @@
+if (typeof OFFICIAL_LINKS !== "undefined" && OFFICIAL_LINKS.jour) { OFFICIAL_LINKS.jour["05.2026"] = "https://drive.google.com/file/d/10m7iyIkecXkq429bCiIXatuzf7a6PXfX/view"; }
