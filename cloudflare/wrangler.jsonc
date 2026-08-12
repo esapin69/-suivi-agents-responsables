@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "suivi-agents-responsables",
+  "main": "src/index.ts",
+  "tsconfig": "tsconfig.json",
+  "base_dir": ".",
+  "compatibility_date": "2026-08-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["migrations/**/*.sql"],
+      "fallthrough": true
+    }
+  ],
+  "workers_dev": false,
+  "keep_vars": true,
+  "routes": [
+    {
+      "pattern": "responsable-api.esapin.com/*",
+      "zone_name": "esapin.com"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "suivi-stagiaires",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "DOCUMENTS"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "LOGIN_IP_LIMITER",
+      "namespace_id": "2026081001",
+      "simple": { "limit": 8, "period": 60 }
+    },
+    {
+      "name": "LOGIN_GLOBAL_LIMITER",
+      "namespace_id": "2026081002",
+      "simple": { "limit": 120, "period": 60 }
+    },
+    {
+      "name": "SHARE_LINK_LIMITER",
+      "namespace_id": "2026081201",
+      "simple": { "limit": 30, "period": 60 }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "secrets": {
+    "required": ["SESSION_SECRET"]
+  }
+}

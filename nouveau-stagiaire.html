@@ -1,3 +1,53 @@
 <!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0d2433"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com https://script.google.com https://script.googleusercontent.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y='; script-src-attr 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'"><script>document.documentElement.classList.add("auth-pending")</script><title>GHE · Nouveau stagiaire</title><link rel="stylesheet" href="style.css?v=20260811-appnav-2"><link rel="stylesheet" href="modules.css?v=20260811-2"></head>
-<body data-required-access="nouveau_stagiaire"><header class="topbar portal-topbar"><a class="portal-brand" href="/"><span class="portal-brand-mark">G</span><span><strong>GHE</strong><small>Nouveau stagiaire</small></span></a></header><main class="module-shell"><span class="portal-eyebrow">STAGE</span><h1 class="module-title">Espace stagiaire</h1><p class="module-lead">Un point d’entrée simple pour préparer l’arrivée, retrouver les repères et suivre l’organisation du stage.</p><section class="module-grid"><a class="module-card primary" href="https://nouvel-agent.esapin.com/index.html" target="_blank" rel="noopener"><span class="mini-icon">⌖</span><h2>Repères terrain</h2><p>Hôpitaux, déplacements, matériel, contacts et aide du guide Nouvel arrivant.</p><span class="go">↗</span></a><a class="module-card" href="esprit-equipe.html"><span class="mini-icon">👥</span><h2>Organisation d’équipe</h2><p>Présences, formations, stagiaires et référents visibles dans Esprit d’équipe.</p><span class="go">→</span></a><a class="module-card" href="contacts.html"><span class="mini-icon">☎</span><h2>Contacts utiles</h2><p>GHE, responsables, administration et services utiles.</p><span class="go">→</span></a><a class="module-card" href="Nouvelle%20agent%20et%20suivi/"><span class="mini-icon">◎</span><h2>Suivi</h2><p>Accéder au suivi uniquement si votre profil possède également l’autorisation correspondante.</p><span class="go">→</span></a></section><div class="contact-note">Les boutons du menu général restent filtrés par votre code. Une personne sans droit Suivi ne pourra pas contourner cette règle depuis cette page.</div></main><script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260811-auth-6"></script></body></html>
+<html lang="fr" class="auth-pending">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#0d2433">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
+  <title>GHE · Suivi des stagiaires</title>
+  <link rel="stylesheet" href="style.css?v=20260812-stagiaires-1">
+  <link rel="stylesheet" href="stagiaires.css?v=20260812-1">
+</head>
+<body data-required-access="nouveau_stagiaire" data-stagiaire-page="dashboard">
+  <header class="topbar portal-topbar">
+    <a class="portal-brand" href="/"><span class="portal-brand-mark">G</span><span><strong>GHE</strong><small>Suivi des stagiaires</small></span></a>
+  </header>
+  <main class="trainee-shell">
+    <section class="trainee-hero">
+      <div><span class="portal-eyebrow">BRANCARDAGE · STAGES</span><h1>Fiches stagiaires</h1><p>Une fiche vivante, complétée au fil du stage puis figée lors de la validation finale.</p></div>
+      <button class="button primary" type="button" id="showCreate">Créer une fiche</button>
+    </section>
+
+    <div class="notice" id="dashboardNotice" hidden role="status"></div>
+
+    <section class="panel" id="createPanel" hidden>
+      <div class="panel-heading"><div><span class="step-kicker">ARRIVÉE</span><h2>Nouvelle fiche</h2><p>Seulement les informations utiles pour démarrer.</p></div><button class="icon-button" type="button" id="hideCreate" aria-label="Fermer">×</button></div>
+      <form id="createTraineeForm" class="form-grid">
+        <label>Prénom<input name="firstName" maxlength="80" required autocomplete="off"></label>
+        <label>Nom<input name="lastName" maxlength="80" required autocomplete="off"></label>
+        <label>Début du stage<input name="startDate" type="date" required></label>
+        <label>Fin du stage<input name="endDate" type="date" required></label>
+        <label class="wide">École / établissement<input name="school" maxlength="180" autocomplete="organization"></label>
+        <label>Adresse e-mail<input name="email" type="email" maxlength="180" autocomplete="email"></label>
+        <label>Téléphone<input name="phone" maxlength="40" autocomplete="tel"></label>
+        <label>Tuteur référent dans l’équipe<select name="tutorUserId" id="tutorUserId"><option value="">À définir plus tard</option></select></label>
+        <label>Nom libre si absent de la liste<input name="tutorName" maxlength="160" autocomplete="off"></label>
+        <label class="wide">Repères à l’arrivée<textarea name="arrivalNotes" maxlength="3000" rows="3" placeholder="Accueil, consignes remises, besoins particuliers…"></textarea></label>
+        <div class="form-actions wide"><button class="button primary" type="submit">Créer et ouvrir la fiche</button><button class="button ghost" type="button" id="cancelCreate">Annuler</button></div>
+      </form>
+    </section>
+
+    <section class="list-toolbar" aria-label="Filtres des fiches">
+      <label class="search-field"><span>Rechercher</span><input id="traineeSearch" type="search" placeholder="Nom, école ou référence"></label>
+      <div class="segmented" id="statusFilters"><button type="button" class="active" data-status="OPEN">En cours</button><button type="button" data-status="CLOSED">Clôturées</button><button type="button" data-status="">Toutes</button></div>
+    </section>
+    <section class="trainee-list" id="traineeList" aria-live="polite"><div class="loading-card">Chargement des fiches…</div></section>
+
+  </main>
+  <script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260812-stagiaires-1"></script>
+  <script src="stagiaires.js?v=20260812-1"></script>
+</body>
+</html>
