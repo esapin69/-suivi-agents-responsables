@@ -6,6 +6,9 @@ const ALLOWED_ORIGINS = new Set([
 const SESSION_COOKIE = "__Host-ghe_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const APPS_SCRIPT_TIMEOUT_MS = 8000;
+const AGENTS_CACHE_REFRESH_MS = 60 * 1000;
+const AGENTS_CACHE_TTL_SECONDS = 5 * 60;
+const AGENTS_CACHE_FETCH_TIMEOUT_MS = 12000;
 const MAX_BODY_BYTES = 250000;
 const MAX_LOGIN_BODY_BYTES = 2000;
 
@@ -35,7 +38,7 @@ class UpstreamError extends Error {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const incoming = new URL(request.url);
     const action = incoming.searchParams.get("action") || "health";
     const origin = request.headers.get("Origin") || "";
@@ -70,7 +73,7 @@ export default {
         if (request.method !== "POST") {
           return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
         }
-        return await login(request, env, origin);
+        return await login(request, env, origin, ctx);
       }
 
       if (action === "logout") {
@@ -105,6 +108,18 @@ export default {
           return apiError("ACTION_REFUSEE", "Action non autorisée.", 403, origin);
         }
 
+        if (action === "listAgents") {
+          if (!session.access || session.access.suivi_des_agents !== true) {
+            return apiError(
+              "ACCES_REFUSE",
+              "Cette rubrique n’est pas autorisée pour votre profil.",
+              403,
+              origin
+            );
+          }
+          return await listAgentsCached(env, session, origin, ctx);
+        }
+
         const params = {
           auth_user_id: session.id,
           auth_session_version: session.access_version
@@ -132,6 +147,13 @@ export default {
         }
 
         const result = await callAppsScript(env, "POST", action, payload, {});
+
+        if (action === "createAgent" || action === "updateAgent") {
+          ctx.waitUntil(invalidateAgentsCache().catch(error => {
+            console.error(JSON.stringify({ event: "agents_cache_invalidate_error", message: String(error) }));
+          }));
+        }
+
         return apiJson(result, 200, origin);
       }
 
@@ -164,7 +186,7 @@ export default {
   }
 };
 
-async function login(request, env, origin) {
+async function login(request, env, origin, ctx) {
   const limiterKey = await loginLimiterKey(request);
 
   const [ipLimit, globalLimit] = await Promise.all([
@@ -223,12 +245,87 @@ async function login(request, env, origin) {
     env.SESSION_SECRET
   );
 
+  if (user.access && user.access.suivi_des_agents === true) {
+    const warmSession = {
+      id: user.id,
+      access_version: accessVersion
+    };
+    ctx.waitUntil(refreshAgentsCache(env, warmSession).catch(error => {
+      console.error(JSON.stringify({ event: "agents_cache_warm_error", message: String(error) }));
+    }));
+  }
+
   return apiJson(
     { ok: true, user },
     200,
     origin,
     { "Set-Cookie": sessionCookie(token) }
   );
+}
+
+async function listAgentsCached(env, session, origin, ctx) {
+  const cache = caches.default;
+  const key = agentsCacheKey();
+  const cached = await cache.match(key);
+
+  if (cached) {
+    const data = await cached.json();
+    const cachedAt = Number(cached.headers.get("X-GHE-Cached-At") || 0);
+
+    if (!cachedAt || Date.now() - cachedAt >= AGENTS_CACHE_REFRESH_MS) {
+      ctx.waitUntil(refreshAgentsCache(env, session).catch(error => {
+        console.error(JSON.stringify({ event: "agents_cache_refresh_error", message: String(error) }));
+      }));
+    }
+
+    return apiJson(data, 200, origin, { "X-GHE-Cache": "HIT" });
+  }
+
+  const data = await fetchAgentsFromAppsScript(env, session);
+  await putAgentsCache(data);
+  return apiJson(data, 200, origin, { "X-GHE-Cache": "MISS" });
+}
+
+async function fetchAgentsFromAppsScript(env, session) {
+  return await callAppsScript(
+    env,
+    "GET",
+    "listAgents",
+    {},
+    {
+      auth_user_id: session.id,
+      auth_session_version: session.access_version
+    },
+    AGENTS_CACHE_FETCH_TIMEOUT_MS
+  );
+}
+
+async function refreshAgentsCache(env, session) {
+  const data = await fetchAgentsFromAppsScript(env, session);
+  await putAgentsCache(data);
+  return data;
+}
+
+async function putAgentsCache(data) {
+  const response = new Response(JSON.stringify(data), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": `public, max-age=${AGENTS_CACHE_TTL_SECONDS}`,
+      "X-GHE-Cached-At": String(Date.now())
+    }
+  });
+  await caches.default.put(agentsCacheKey(), response);
+}
+
+async function invalidateAgentsCache() {
+  await caches.default.delete(agentsCacheKey());
+}
+
+function agentsCacheKey() {
+  return new Request("https://responsable-api.esapin.com/__internal_cache/listAgents", {
+    method: "GET"
+  });
 }
 
 function requireSecrets(env) {
@@ -244,9 +341,9 @@ function requireSecrets(env) {
   }
 }
 
-async function callAppsScript(env, method, action, payload, params) {
+async function callAppsScript(env, method, action, payload, params, timeoutMs = APPS_SCRIPT_TIMEOUT_MS) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), APPS_SCRIPT_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     let response;
