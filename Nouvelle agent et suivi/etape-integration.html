@@ -7,7 +7,7 @@
 <div id="contextStatus" class="status show warn">Chargement de l’agent…</div>
 <section class="context-card"><div><div class="kicker">Agent sélectionné</div><div class="context-name" data-agent-name>Chargement…</div><p data-agent-meta></p></div><a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Voir la fiche</a></section>
 <section class="panel empty-panel"><div class="workspace-icon" aria-hidden="true">↗</div><div class="kicker">Suivi d’intégration</div><h1 id="stageName">Étape</h1><h2>Page prête, questionnaire non publié</h2><p>Cette page conserve automatiquement l’agent sélectionné. Le contenu sera ajouté uniquement après validation officielle du questionnaire.</p></section>
-</main><script src="app.js?v=20260810-auth-1"></script><script src="agent-context.js"></script><script>
+</main><script src="app.js?v=20260810-auth-1"></script><script src="../data-cache.js?v=20260812-global-1"></script><script src="agent-context.js"></script><script>
 const stages={"premier-jour":"1er jour","premiere-semaine":"1re semaine","fin-doublure":"Fin de doublure","un-mois":"1 mois","trois-mois":"3 mois","six-mois":"6 mois"};
 const stage=stages[new URLSearchParams(location.search).get("etape")];
 if(stage){q("#stageName").textContent=stage;document.title=`${stage} · Suivi d’intégration`;}else{q("#stageName").textContent="Étape non reconnue";}
