@@ -1,15 +1,15 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "suivi-agents-responsables",
-  "main": "backend/src/index.ts",
-  "tsconfig": "backend/tsconfig.json",
+  "main": "src/index.ts",
+  "tsconfig": "tsconfig.json",
   "base_dir": ".",
   "compatibility_date": "2026-08-12",
   "compatibility_flags": ["nodejs_compat"],
   "rules": [
     {
       "type": "Text",
-      "globs": ["backend/migrations/**/*.sql"],
+      "globs": ["migrations/**/*.sql"],
       "fallthrough": true
     }
   ],
@@ -25,7 +25,7 @@
     {
       "binding": "DB",
       "database_name": "suivi-stagiaires",
-      "migrations_dir": "backend/migrations"
+      "migrations_dir": "migrations"
     }
   ],
   "r2_buckets": [

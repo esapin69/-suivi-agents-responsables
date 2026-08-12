@@ -1,12 +1,14 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 
 const files = ["nouveau-stagiaire.html", "fiche-stagiaire.html"];
+const projectFile = (...parts) => path.join(__dirname, ...parts);
 
 test("les pages stagiaires appliquent une politique de sécurité avant les scripts", () => {
   for (const file of files) {
-    const html = fs.readFileSync(file, "utf8");
+    const html = fs.readFileSync(projectFile(file), "utf8");
     const csp = html.match(/<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]+)">/i);
     assert.ok(csp, `${file}: CSP manquante`);
     assert.ok(html.indexOf(csp[0]) < html.search(/<script\b/i), `${file}: CSP trop tardive`);
@@ -22,14 +24,14 @@ test("les pages stagiaires appliquent une politique de sécurité avant les scri
 });
 
 test("le lien stagiaire est échangé contre un cookie puis retiré de l’adresse", () => {
-  const source = fs.readFileSync("stagiaires.js", "utf8");
+  const source = fs.readFileSync(projectFile("stagiaires.js"), "utf8");
   assert.match(source, /\/v2\/share\/exchange/);
   assert.match(source, /history\.replaceState/);
   assert.doesNotMatch(source, /localStorage|sessionStorage/);
 });
 
 test("les éléments signés et les documents disposent de verrous en base", () => {
-  const schema = fs.readFileSync("backend/migrations/0001_initial.sql", "utf8");
+  const schema = fs.readFileSync(projectFile("cloudflare", "migrations", "0001_initial.sql"), "utf8");
   for (const trigger of [
     "signatures_immutable_update",
     "documents_immutable_update",

@@ -1,13 +1,13 @@
 {
-  "name": "ghe-suivi-stagiaires",
+  "name": "ghe-suivi-stagiaires-worker",
   "private": true,
   "type": "module",
   "scripts": {
     "check": "npm run types && npm run typecheck && npm test && wrangler deploy --dry-run",
     "dev": "wrangler dev",
-    "test": "vitest run --config backend/vitest.config.ts && npm run test:site",
-    "test:site": "node --check stagiaires.js && node --test stagiaires-security.test.cjs",
-    "typecheck": "tsc --noEmit -p backend/tsconfig.json",
+    "test": "vitest run --config vitest.config.ts && npm run test:site",
+    "test:site": "node --check ../stagiaires.js && node --test ../stagiaires-security.test.cjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "types": "wrangler types --include-runtime false",
     "deploy": "npm run check && wrangler deploy"
   },

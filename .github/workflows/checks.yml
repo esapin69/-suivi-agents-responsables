@@ -23,8 +23,13 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+        working-directory: cloudflare
       - run: npm run typecheck
+        working-directory: cloudflare
       - run: npm test
+        working-directory: cloudflare
       - run: npx wrangler types --include-runtime false --check
+        working-directory: cloudflare
       - name: Vérifier le bundle Worker
-        run: npx esbuild backend/src/index.ts --bundle --format=esm --platform=browser --target=es2024 --loader:.sql=text --outfile=/tmp/ghe-worker-build.js
+        run: npx esbuild src/index.ts --bundle --format=esm --platform=browser --target=es2024 --loader:.sql=text --outfile=/tmp/ghe-worker-build.js
+        working-directory: cloudflare

@@ -28,9 +28,7 @@ Le module couvre le cycle complet :
 | Un bucket Cloudflare R2 privé | Images de signature et PDF définitifs |
 | GitHub | Source unique, historique, tests et déclenchement du déploiement |
 
-Le fichier [`wrangler.jsonc`](wrangler.jsonc) est la source de vérité du Worker. D1 et R2 sont déclarés sans identifiant : Wrangler peut les créer automatiquement lors du premier déploiement connecté à GitHub. Le schéma D1 s’initialise ensuite automatiquement et de manière idempotente depuis la migration versionnée.
-
-Le fichier `cloudflare/index.js` est uniquement un point d’entrée de compatibilité avec l’ancien réglage Workers Builds. Il renvoie vers le moteur TypeScript unique et ne contient aucune logique dupliquée.
+Le fichier [`cloudflare/wrangler.jsonc`](cloudflare/wrangler.jsonc) est la source de vérité du Worker. Le moteur unique reste dans ce dossier, qui correspond au branchement Workers Builds déjà en place. D1 et R2 sont déclarés sans identifiant : Wrangler peut les créer automatiquement lors du premier déploiement connecté à GitHub. Le schéma D1 s’initialise ensuite automatiquement et de manière idempotente depuis la migration versionnée.
 
 Le dossier Google Drive existant peut rester un espace d’export ou de consultation. Il n’est ni la base de données ni une dépendance du fonctionnement quotidien. Le dossier `Formule 1 officielle modèle` étant actuellement vide, le PDF utilise la présentation institutionnelle GHE incluse dans le code ; un futur modèle pourra la remplacer sans modifier les anciens PDF.
 
@@ -63,6 +61,8 @@ npm run typecheck
 npm test
 npm run types
 ```
+
+Ces commandes sont à exécuter dans le dossier `cloudflare`.
 
 Les tests couvrent notamment : initialisation d’une D1 vide, création d’un administrateur, connexion, création d’une fiche, lien stagiaire, sauvegarde, signatures multiples, refus de modifier une observation signée, clôture, génération et lecture du PDF, puis ouverture d’une nouvelle version.
 

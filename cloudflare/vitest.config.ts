@@ -6,7 +6,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [
     cloudflareTest(async () => ({
-      wrangler: { configPath: fileURLToPath(new URL("../wrangler.jsonc", import.meta.url)) },
+      wrangler: { configPath: fileURLToPath(new URL("./wrangler.jsonc", import.meta.url)) },
       miniflare: {
         d1Databases: ["FRESH_DB"],
         bindings: {
@@ -18,7 +18,7 @@ export default defineConfig({
     })),
   ],
   test: {
-    include: ["backend/test/**/*.test.ts"],
+    include: ["test/**/*.test.ts"],
     setupFiles: [fileURLToPath(new URL("./test/apply-migrations.ts", import.meta.url))],
     sequence: { concurrent: false },
   },
