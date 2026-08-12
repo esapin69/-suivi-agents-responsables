@@ -12,6 +12,7 @@
  * - une étape finalisée est protégée contre l'écrasement accidentel ;
  * - les situations sont recopiées dans le journal individuel sans effacer les notes manuelles ;
  * - les évaluations officielles font partie du suivi via un index avec lien PDF ;
+ * - les lectures ne réécrivent rien inutilement ;
  * - synchronisation immédiate lors des écritures + réconciliation globale possible.
  */
 
@@ -19,6 +20,8 @@ const SUIVI_CONFIG = Object.freeze({
   TEMPLATE_ID: '1C6Ur7UL_4EpOvVvm9ivSPxzKcVhxlZcDkDstmZ0_zLc',
   TZ: 'Europe/Paris',
   STATUS_SHEET: 'Suivi étapes',
+  STATUS_CACHE_KEY: 'SUIVI_STATUS_V2',
+  STATUS_CACHE_SECONDS: 60,
   EVALUATION_INDEX_TAB: 'Évaluations officielles',
   SITUATION_MARKER_PREFIX: 'AUTO-SITUATION:',
   TECHNICAL_MARKER_COLUMN: 26
@@ -148,16 +151,16 @@ function saveFollowup_(p, principal) {
       : boundedText_(p.evaluateur, 250, 'EVALUATEUR_TROP_LONG');
     const validationDate = clean_(p.date_validation || formatDateForClient_(new Date()));
 
-    let status = normalized.some(x => x.level || x.observation) || followupBilanHasData_(p.bilan, p.choices)
-      ? 'BROUILLON'
-      : 'A_FAIRE';
+    SpreadsheetApp.flush();
+    const afterWrite = buildFollowupPayload_(context.agent, step, context.sheet);
+    let status = afterWrite.has_data ? 'BROUILLON' : 'A_FAIRE';
 
     if (finalize) {
       if (!evaluator) throw new Error('EVALUATEUR_REQUIS');
       if (!parseIsoDate_(validationDate)) throw new Error('DATE_VALIDATION_INVALIDE');
       writeFollowupValidation_(context.sheet, current.validation, evaluator, validationDate);
-      status = 'TERMINE';
       writeFollowupSummaryDate_(context.ss, step, validationDate);
+      status = 'TERMINE';
     }
 
     upsertFollowupStatus_(id, step, status, finalize ? validationDate : '', evaluator);
@@ -238,18 +241,21 @@ function ensureFollowupStructureForFile_(spreadsheetId) {
   const id = clean_(spreadsheetId);
   if (!id) throw new Error('FICHIER_SUIVI_MANQUANT');
   const target = SpreadsheetApp.openById(id);
-  const template = SpreadsheetApp.openById(SUIVI_CONFIG.TEMPLATE_ID);
 
-  SUIVI_TEMPLATE_TABS.forEach(name => {
-    if (target.getSheetByName(name)) return;
-    const source = template.getSheetByName(name);
-    if (!source) throw new Error('ONGLET_MODELE_MANQUANT: ' + name);
-    source.copyTo(target).setName(name);
-  });
+  const missing = SUIVI_TEMPLATE_TABS.filter(name => !target.getSheetByName(name));
+  const missingComplement = !target.getSheetByName('Suivi complémentaire') && !target.getSheetByName('Événements et observations');
 
-  if (!target.getSheetByName('Suivi complémentaire') && !target.getSheetByName('Événements et observations')) {
-    const source = template.getSheetByName('Suivi complémentaire');
-    if (source) source.copyTo(target).setName('Suivi complémentaire');
+  if (missing.length || missingComplement) {
+    const template = SpreadsheetApp.openById(SUIVI_CONFIG.TEMPLATE_ID);
+    missing.forEach(name => {
+      const source = template.getSheetByName(name);
+      if (!source) throw new Error('ONGLET_MODELE_MANQUANT: ' + name);
+      source.copyTo(target).setName(name);
+    });
+    if (missingComplement) {
+      const source = template.getSheetByName('Suivi complémentaire');
+      if (source) source.copyTo(target).setName('Suivi complémentaire');
+    }
   }
 
   ensureEvaluationIndexSheet_(target);
@@ -260,10 +266,14 @@ function followupContext_(agentId, step) {
   const agent = getAgent_(agentId);
   if (!agent) throw new Error('AGENT_INTROUVABLE');
   if (!agent.fichier_brouillon_id) throw new Error('FICHIER_SUIVI_MANQUANT');
-  const ss = ensureFollowupStructureForFile_(agent.fichier_brouillon_id);
-  syncAgentIdentityToFollowup_(agent, ss);
+
+  let ss = SpreadsheetApp.openById(agent.fichier_brouillon_id);
   const conf = SUIVI_STEPS[step];
-  const sheet = ss.getSheetByName(conf.tab);
+  let sheet = ss.getSheetByName(conf.tab);
+  if (!sheet) {
+    ss = ensureFollowupStructureForFile_(agent.fichier_brouillon_id);
+    sheet = ss.getSheetByName(conf.tab);
+  }
   if (!sheet) throw new Error('ONGLET_SUIVI_MANQUANT: ' + conf.tab);
   return {agent, ss, sheet};
 }
@@ -342,6 +352,7 @@ function buildFollowupPayload_(agent, step, sh) {
     etape: step,
     label: SUIVI_STEPS[step].label,
     statut: status,
+    has_data: anyData,
     levels,
     items,
     completed: items.filter(x => x.niveau).length,
@@ -409,7 +420,6 @@ function readFollowupBilan_(sh, values, startRow, endRow) {
 function findWritableFollowupCell_(sh, row) {
   const rowRange = sh.getRange(row, 1, 1, Math.min(10, sh.getMaxColumns()));
   const merged = rowRange.getMergedRanges();
-  const labelCell = sh.getRange(row, 1);
   let labelEnd = 1;
   merged.forEach(r => {
     if (r.getRow() === row && r.getColumn() <= 1 && r.getLastColumn() >= 1) {
@@ -446,14 +456,6 @@ function saveFollowupBilan_(sh, current, incomingFields, incomingChoices) {
       sh.getRange(row, 2).setValue(choice.selected ? '☒' : '☐');
     });
   }
-}
-
-function followupBilanHasData_(fields, choices) {
-  const f = fields && typeof fields === 'object'
-    ? Object.keys(fields).some(k => clean_(fields[k]))
-    : false;
-  const c = Array.isArray(choices) ? choices.some(x => x && x.selected) : false;
-  return f || c;
 }
 
 function followupBilanPayloadHasData_(bilan) {
@@ -499,17 +501,35 @@ function writeFollowupValidation_(sh, validation, evaluator, isoDate) {
 function followupStatusSheet_() {
   const ss = SpreadsheetApp.openById(CONFIG.SOURCE_ID);
   let sh = ss.getSheetByName(SUIVI_CONFIG.STATUS_SHEET);
-  if (!sh) sh = ss.insertSheet(SUIVI_CONFIG.STATUS_SHEET);
   const headers = ['ID agent','Étape','Statut','Date validation','Modifié le','Évaluateur'];
-  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
-  sh.setFrozenRows(1);
+
+  if (!sh) {
+    sh = ss.insertSheet(SUIVI_CONFIG.STATUS_SHEET);
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+    return sh;
+  }
+
+  const current = sh.getLastColumn() >= headers.length
+    ? sh.getRange(1, 1, 1, headers.length).getDisplayValues()[0]
+    : [];
+  if (headers.some((h, i) => clean_(current[i]) !== h)) {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+  }
   return sh;
 }
 
 function readFollowupStatusRows_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(SUIVI_CONFIG.STATUS_CACHE_KEY);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (_) {}
+  }
+
   const sh = followupStatusSheet_();
   if (sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues()
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues()
     .filter(r => clean_(r[0]) && clean_(r[1]))
     .map(r => ({
       id_agent: clean_(r[0]),
@@ -519,6 +539,11 @@ function readFollowupStatusRows_() {
       modifie_le: formatDateTimeForClient_(r[4]),
       evaluateur: clean_(r[5])
     }));
+
+  try {
+    cache.put(SUIVI_CONFIG.STATUS_CACHE_KEY, JSON.stringify(rows), SUIVI_CONFIG.STATUS_CACHE_SECONDS);
+  } catch (_) {}
+  return rows;
 }
 
 function getStoredFollowupStatus_(id, step) {
@@ -541,6 +566,7 @@ function upsertFollowupStatus_(id, step, status, dateValidation, evaluator) {
     safeSheetText_(evaluator)
   ]]);
   if (d) sh.getRange(row, 4).setNumberFormat('dd/MM/yyyy');
+  try { CacheService.getScriptCache().remove(SUIVI_CONFIG.STATUS_CACHE_KEY); } catch (_) {}
 }
 
 function writeFollowupSummaryDate_(ss, step, isoDate) {
@@ -644,13 +670,24 @@ function findSituationHeaderRow_(sh) {
 
 function ensureEvaluationIndexSheet_(ss) {
   let sh = ss.getSheetByName(SUIVI_CONFIG.EVALUATION_INDEX_TAB);
-  if (!sh) sh = ss.insertSheet(SUIVI_CONFIG.EVALUATION_INDEX_TAB);
   const headers = [
     'Date évaluation','Version','Évaluateur','Statut','PDF officiel',
     'Empreinte SHA-256','ID évaluation'
   ];
-  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
-  sh.setFrozenRows(1);
+  if (!sh) {
+    sh = ss.insertSheet(SUIVI_CONFIG.EVALUATION_INDEX_TAB);
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+    return sh;
+  }
+
+  const current = sh.getLastColumn() >= headers.length
+    ? sh.getRange(1, 1, 1, headers.length).getDisplayValues()[0]
+    : [];
+  if (headers.some((h, i) => clean_(current[i]) !== h)) {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+  }
   return sh;
 }
 
@@ -750,21 +787,15 @@ function normalizeFollowupStep_(value) {
   const aliases = {
     premierjour:'premier_jour',
     '1erjour':'premier_jour',
-    premier_jour:'premier_jour',
     premieresemaine:'premiere_semaine',
     '1eresemaine':'premiere_semaine',
-    premiere_semaine:'premiere_semaine',
     findedoublure:'fin_doublure',
-    fin_doublure:'fin_doublure',
     suivi1mois:'suivi_1_mois',
     '1mois':'suivi_1_mois',
-    suivi_1_mois:'suivi_1_mois',
     suivi3mois:'suivi_3_mois',
     '3mois':'suivi_3_mois',
-    suivi_3_mois:'suivi_3_mois',
     suivi6mois:'suivi_6_mois',
-    '6mois':'suivi_6_mois',
-    suivi_6_mois:'suivi_6_mois'
+    '6mois':'suivi_6_mois'
   };
   return aliases[n] || clean_(value);
 }
