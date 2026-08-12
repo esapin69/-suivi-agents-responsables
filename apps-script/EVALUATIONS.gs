@@ -228,7 +228,10 @@ function fillOfficialDocument_(doc,r){
   fillTableRatings_(doc.getBody(),r.criteres);
   fillObservations_(doc,[r.observations_1,r.observations_2,r.observations_3,r.observations_4,r.observations_5,r.observations_generales]);
   replaceEverywhere_(doc,/OUI\s*[☐☒]?\s*NON\s*[☐☒]?/i,r.garder_agent==='OUI'?'OUI ☒   NON ☐':'OUI ☐   NON ☒');
-  insertSignatures_(doc,r.signatures||{});
+  insertSignatures_(doc,r.signatures||{}, {
+    agent:(r.prenom+' '+r.nom).trim(),
+    responsable:clean_(r.evaluateur)
+  });
   enforceOfficialTwoPageLayout_(doc);
 }
 
@@ -247,8 +250,38 @@ function setDocumentLine_(doc,token,replacement){const wanted=normalize_(token);
 function setAllDocumentLines_(doc,token,replacement){const wanted=normalize_(token);let count=0;for(const section of documentSections_(doc)){walkParagraphs_(section,p=>{if(normalize_(p.getText()).indexOf(wanted)===0){p.setText(replacement);count++;}return false;});}return count;}
 function replaceDateInDocument_(doc,dateText){for(const section of documentSections_(doc)){const found=walkParagraphs_(section,p=>{const text=p.getText(),normalized=normalize_(text);if(normalized.indexOf('DATE')<0)return false;if(/DATE\s*:/i.test(text)){p.setText(text.replace(/DATE\s*:[^\n\r]*/i,'DATE : '+dateText));return true;}return false;});if(found)return true;}return false;}
 function fillObservations_(doc,values){let cursor=0;for(const section of documentSections_(doc)){walkParagraphs_(section,p=>{if(cursor>=values.length)return false;const label=normalize_(p.getText());if(label.indexOf('OBSERVATION')!==0)return false;const value=clean_(values[cursor++]);p.setText(label.indexOf('GENERALES')>=0?'OBSERVATIONS GENERALES :':'OBSERVATIONS :');if(value)p.appendText('\n'+value);return false;});if(cursor>=values.length)break;}}
-function insertSignatures_(doc,signatures){const inserted={agent:false,responsable:false,direction:false};documentSections_(doc).forEach(section=>walkParagraphs_(section,p=>{const text=normalize_(p.getText());if(!inserted.agent&&signatures.agent&&text.indexOf('SIGNATUREDELAGENT')>=0){appendSignatureImage_(p,signatures.agent,'agent');inserted.agent=true;}if(!inserted.responsable&&signatures.responsable&&(text.indexOf('SIGNATUREDURESPONSABLE')>=0||text.indexOf('RESPONSABLEEVALUATEUR')>=0)){appendSignatureImage_(p,signatures.responsable,'responsable');inserted.responsable=true;}if(!inserted.direction&&signatures.direction&&(text.indexOf('DIRECTIONDESSOINS')>=0||text.indexOf('DIRECTIONOUCHEFDESERVICE')>=0)){appendSignatureImage_(p,signatures.direction,'direction');inserted.direction=true;}return false;}));if(signatures.responsable&&!inserted.responsable)throw new Error('EMPLACEMENT_SIGNATURE_RESPONSABLE_INTROUVABLE');}
-function appendSignatureImage_(container,dataUrl,name){container.appendText('\n');const bytes=Utilities.base64Decode(dataUrl.split(',')[1]);const image=container.appendInlineImage(Utilities.newBlob(bytes,'image/png','signature-'+name+'.png'));const width=145,height=Math.max(42,Math.round(image.getHeight()*width/image.getWidth()));image.setWidth(width).setHeight(Math.min(height,72));}
+function insertSignatures_(doc,signatures,identities){
+  identities=identities||{};
+  const inserted={agent:false,responsable:false,direction:false};
+  documentSections_(doc).forEach(section=>walkParagraphs_(section,p=>{
+    const text=normalize_(p.getText());
+    if(!inserted.agent&&text.indexOf('SIGNATUREDELAGENT')>=0){
+      appendSignatureIdentityAndImage_(p,signatures.agent||'','agent',identities.agent||'');
+      inserted.agent=true;
+    }
+    if(!inserted.responsable&&(text.indexOf('SIGNATUREDURESPONSABLE')>=0||text.indexOf('RESPONSABLEEVALUATEUR')>=0)){
+      appendSignatureIdentityAndImage_(p,signatures.responsable||'','responsable',identities.responsable||'');
+      inserted.responsable=true;
+    }
+    if(!inserted.direction&&signatures.direction&&(text.indexOf('DIRECTIONDESSOINS')>=0||text.indexOf('DIRECTIONOUCHEFDESERVICE')>=0)){
+      appendSignatureIdentityAndImage_(p,signatures.direction,'direction','');
+      inserted.direction=true;
+    }
+    return false;
+  }));
+  if(!inserted.agent)throw new Error('EMPLACEMENT_SIGNATURE_AGENT_INTROUVABLE');
+  if(signatures.responsable&&!inserted.responsable)throw new Error('EMPLACEMENT_SIGNATURE_RESPONSABLE_INTROUVABLE');
+}
+function appendSignatureIdentityAndImage_(container,dataUrl,name,signerName){
+  const identity=clean_(signerName);
+  if(identity)container.appendText('\nNom : '+identity);
+  if(!dataUrl)return;
+  container.appendText('\n');
+  const bytes=Utilities.base64Decode(dataUrl.split(',')[1]);
+  const image=container.appendInlineImage(Utilities.newBlob(bytes,'image/png','signature-'+name+'.png'));
+  const width=145,height=Math.max(42,Math.round(image.getHeight()*width/image.getWidth()));
+  image.setWidth(width).setHeight(Math.min(height,72));
+}
 function fillTableRatings_(body,criteria){body.getTables().forEach(table=>{for(let i=0;i<table.getNumRows();i++){const row=table.getRow(i);for(let j=0;j<row.getNumCells();j++){const label=clean_(row.getCell(j).getText()),criterion=EVAL_CRITERIA.find(c=>normalize_(c)===normalize_(label));if(!criterion)continue;const selected=EVAL_LEVELS.indexOf(criteria[criterion]);for(let k=0;k<EVAL_LEVELS.length&&j+1+k<row.getNumCells();k++)row.getCell(j+1+k).setText(k===selected?'X':'');}}});}
 function replaceEverywhere_(doc,regex,replacement){const pattern=regex.source,safe=String(replacement).replace(/\$/g,'$$$$');documentSections_(doc).forEach(section=>{try{section.replaceText(pattern,safe);}catch(_){}});}
 function sha256Hex_(bytes){return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,bytes).map(b=>('0'+((b<0?b+256:b).toString(16))).slice(-2)).join('');}
