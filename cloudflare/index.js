@@ -5,6 +5,7 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 const SESSION_COOKIE = "__Host-ghe_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
+const APPS_SCRIPT_TIMEOUT_MS = 8000;
 const MAX_BODY_BYTES = 250000;
 const MAX_LOGIN_BODY_BYTES = 2000;
 
@@ -57,8 +58,12 @@ export default {
         if (request.method !== "GET") {
           return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
         }
-        const health = await callAppsScript(env, "GET", "health", {}, {});
-        return apiJson(health, 200, origin);
+        return apiJson({
+          ok: true,
+          service: "suivi-agents",
+          bridge: "cloudflare",
+          time: new Date().toISOString()
+        }, 200, origin);
       }
 
       if (action === "login") {
@@ -92,20 +97,7 @@ export default {
         if (request.method !== "GET") {
           return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
         }
-
-        const result = await callAppsScript(
-          env,
-          "GET",
-          "authorizeAccess",
-          {},
-          {
-            auth_user_id: session.id,
-            auth_session_version: session.access_version
-          }
-        );
-
-        const user = validateAuthUser(result.user);
-        return apiJson({ ok: true, user }, 200, origin);
+        return apiJson({ ok: true, user: publicSessionUser(session) }, 200, origin);
       }
 
       if (request.method === "GET") {
@@ -133,6 +125,11 @@ export default {
         const payload = await readJsonBody(request, MAX_BODY_BYTES);
         payload.auth_user_id = session.id;
         payload.auth_session_version = session.access_version;
+
+        if (action === "saveFirstDay") payload.chef_nom = session.display_name;
+        if (action === "saveEvaluationDraft" || action === "finalizeEvaluation") {
+          payload.evaluateur = session.display_name;
+        }
 
         const result = await callAppsScript(env, "POST", action, payload, {});
         return apiJson(result, 200, origin);
@@ -220,6 +217,7 @@ async function login(request, env, origin) {
       poste: user.poste,
       display_name: user.display_name,
       is_admin: user.is_admin,
+      access: user.access,
       access_version: accessVersion
     },
     env.SESSION_SECRET
@@ -247,60 +245,77 @@ function requireSecrets(env) {
 }
 
 async function callAppsScript(env, method, action, payload, params) {
-  let response;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), APPS_SCRIPT_TIMEOUT_MS);
 
-  if (method === "GET") {
-    const googleUrl = new URL(env.APPS_SCRIPT_URL);
-    googleUrl.searchParams.set("key", env.APPS_SCRIPT_KEY);
-    googleUrl.searchParams.set("action", action);
+  try {
+    let response;
 
-    for (const [key, value] of Object.entries(params)) {
-      if (value) googleUrl.searchParams.set(key, value);
+    if (method === "GET") {
+      const googleUrl = new URL(env.APPS_SCRIPT_URL);
+      googleUrl.searchParams.set("key", env.APPS_SCRIPT_KEY);
+      googleUrl.searchParams.set("action", action);
+
+      for (const [key, value] of Object.entries(params)) {
+        if (value) googleUrl.searchParams.set(key, value);
+      }
+
+      response = await fetch(googleUrl.toString(), {
+        method: "GET",
+        redirect: "follow",
+        signal: controller.signal
+      });
+    } else {
+      const body = new URLSearchParams();
+      body.set(
+        "payload",
+        JSON.stringify({
+          ...payload,
+          action,
+          key: env.APPS_SCRIPT_KEY
+        })
+      );
+
+      response = await fetch(env.APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+        },
+        body,
+        redirect: "follow",
+        signal: controller.signal
+      });
     }
 
-    response = await fetch(googleUrl.toString(), {
-      method: "GET",
-      redirect: "follow"
-    });
-  } else {
-    const body = new URLSearchParams();
-    body.set(
-      "payload",
-      JSON.stringify({
-        ...payload,
-        action,
-        key: env.APPS_SCRIPT_KEY
-      })
-    );
+    const raw = await response.text();
+    const data = parseAppsScriptResponse(raw);
 
-    response = await fetch(env.APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
-      },
-      body,
-      redirect: "follow"
-    });
+    if (!data) {
+      throw new UpstreamError(
+        "REPONSE_GOOGLE_INVALIDE",
+        "Le service de données n’a pas renvoyé une réponse exploitable."
+      );
+    }
+
+    if (data.ok === false) {
+      throw new UpstreamError(
+        String(data.code || "ERREUR_GOOGLE"),
+        String(data.message || data.code || "Erreur du service de données.")
+      );
+    }
+
+    return data;
+  } catch (error) {
+    if (error && error.name === "AbortError") {
+      throw new UpstreamError(
+        "TIMEOUT_GOOGLE",
+        "Google Apps Script met trop de temps à répondre."
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const raw = await response.text();
-  const data = parseAppsScriptResponse(raw);
-
-  if (!data) {
-    throw new UpstreamError(
-      "REPONSE_GOOGLE_INVALIDE",
-      "Le service de données n’a pas renvoyé une réponse exploitable."
-    );
-  }
-
-  if (data.ok === false) {
-    throw new UpstreamError(
-      String(data.code || "ERREUR_GOOGLE"),
-      String(data.message || data.code || "Erreur du service de données.")
-    );
-  }
-
-  return data;
 }
 
 function parseAppsScriptResponse(raw) {
@@ -377,6 +392,18 @@ function validateAccessMap(value) {
   return access;
 }
 
+function publicSessionUser(session) {
+  return {
+    id: session.id,
+    nom: session.nom,
+    prenom: session.prenom,
+    poste: session.poste,
+    display_name: session.display_name,
+    is_admin: session.is_admin === true,
+    access: validateAccessMap(session.access)
+  };
+}
+
 async function createSessionToken(
   user,
   secret,
@@ -389,6 +416,7 @@ async function createSessionToken(
     poste: String(user.poste || ""),
     display_name: String(user.display_name || ""),
     is_admin: user.is_admin === true,
+    access: validateAccessMap(user.access),
     access_version: String(user.access_version || ""),
     iat: nowSeconds,
     exp: nowSeconds + SESSION_TTL_SECONDS,
@@ -460,6 +488,7 @@ async function readSessionToken(
       return null;
     }
 
+    parsed.access = validateAccessMap(parsed.access);
     return parsed;
   } catch {
     return null;
@@ -550,6 +579,7 @@ function statusForCode(code) {
   if (/INTROUVABLE|MANQUANT$/.test(code)) return 404;
   if (/IMMUABLE|EXISTANT|INCOHERENT|DUPLIQUE/.test(code)) return 409;
   if (/TROP_VOLUMINEUX/.test(code)) return 413;
+  if (/TIMEOUT_GOOGLE/.test(code)) return 504;
 
   if (
     /CONFIG|SERVICE_AVANCE|CONVERSION|GENERATION|VERIFICATION|REPONSE_GOOGLE/.test(code)
@@ -561,6 +591,10 @@ function statusForCode(code) {
 }
 
 function publicMessage(code, fallback) {
+  if (/TIMEOUT_GOOGLE/.test(code)) {
+    return "Le service de données met trop de temps à répondre. Réessayez.";
+  }
+
   if (
     /CONFIG|SERVICE_AVANCE|CONVERSION|GENERATION|VERIFICATION|REPONSE_GOOGLE/.test(code)
   ) {
