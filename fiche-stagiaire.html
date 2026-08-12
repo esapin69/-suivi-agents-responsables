@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#0d2433">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; script-src-attr 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
+  <title>GHE · Fiche stagiaire</title>
+  <link rel="stylesheet" href="stagiaires.css?v=20260812-1">
+</head>
+<body data-stagiaire-page="record">
+  <header class="record-header">
+    <a class="record-brand" href="/"><span>G</span><strong>GHE <small>Suivi de stage</small></strong></a>
+    <a class="back-link" id="recordBack" href="/nouveau-stagiaire.html">Toutes les fiches</a>
+  </header>
+  <main class="record-shell">
+    <div class="notice" id="recordNotice" hidden role="status"></div>
+    <section class="record-intro" id="recordIntro"><div class="skeleton-line wide"></div><div class="skeleton-line"></div></section>
+    <nav class="record-jump" aria-label="Parties de la fiche">
+      <a href="#terrain">Terrain</a><a href="#stagiaire">Stagiaire</a><a href="#final">Évaluation finale</a><a href="#documents">Documents</a>
+    </nav>
+
+    <section class="record-section" id="terrain">
+      <div class="section-heading"><div><span class="step-kicker">PENDANT LE STAGE</span><h2>Observations de terrain</h2><p>Chaque agent signe uniquement ce qu’il a personnellement observé.</p></div></div>
+      <form id="observationForm" class="inline-form" hidden>
+        <label>Thème<select name="category" required><option value="AUTONOMIE">Autonomie</option><option value="TECHNIQUE_MANUTENTION">Technique et manutention</option><option value="SECURITE_HYGIENE">Sécurité et hygiène</option><option value="COMMUNICATION">Communication</option><option value="ORGANISATION">Organisation</option><option value="COMPORTEMENT_PROFESSIONNEL">Comportement professionnel</option><option value="AUTRE">Autre</option></select></label>
+        <label>Date observée<input name="observedOn" type="date" required></label>
+        <label class="wide">Ce que j’ai personnellement observé<textarea name="content" rows="4" maxlength="5000" required></textarea></label>
+        <div class="form-actions wide"><button class="button primary" type="submit" id="observationSubmit">Ajouter mon observation</button><button class="button ghost" type="button" id="cancelObservationEdit" hidden>Annuler la modification</button></div>
+      </form>
+      <div class="observation-list" id="observationList"></div>
+    </section>
+
+    <section class="record-section" id="stagiaire">
+      <div class="section-heading"><div><span class="step-kicker">PAROLE DU STAGIAIRE</span><h2>Mon retour sur le stage</h2><p>Cette partie appartient au stagiaire. Une fois signée, elle est figée pour cette version.</p></div></div>
+      <form id="selfSectionForm" class="stack-form">
+        <label>Mes attentes<textarea name="expectations" rows="3" maxlength="5000"></textarea></label>
+        <label>Ma progression ressentie<textarea name="progress" rows="3" maxlength="5000"></textarea></label>
+        <label>Mon retour sur le stage<textarea name="feedback" rows="3" maxlength="5000"></textarea></label>
+        <label>Commentaire libre<textarea name="comments" rows="3" maxlength="5000"></textarea></label>
+        <div class="form-actions"><button class="button primary" type="submit" id="saveSelfSection">Enregistrer ma partie</button><button class="button sign" type="button" id="signSelfSection">Signer ma partie</button></div>
+      </form>
+      <div class="readonly-card" id="selfSectionReadonly" hidden></div>
+    </section>
+
+    <section class="record-section" id="final">
+      <div class="section-heading"><div><span class="step-kicker">FIN DU STAGE</span><h2>Évaluation synthétique</h2><p>Remplie par un responsable, puis signée par le responsable et le stagiaire.</p></div></div>
+      <form id="finalEvaluationForm" class="evaluation-form">
+        <div class="rating-grid" id="ratingGrid"></div>
+        <label>Points forts<textarea name="strengths" rows="4" maxlength="5000" required></textarea></label>
+        <label>Points à améliorer<textarea name="improvements" rows="4" maxlength="5000" required></textarea></label>
+        <label>Synthèse du responsable<textarea name="summary" rows="4" maxlength="5000"></textarea></label>
+        <div class="form-actions"><button class="button primary" type="submit" id="saveFinalEvaluation">Enregistrer l’évaluation</button><button class="button sign" type="button" id="signFinalEvaluation">Signer l’évaluation finale</button></div>
+      </form>
+      <div class="readonly-card" id="finalReadonly" hidden></div>
+      <div class="closure-box" id="closureBox" hidden><div><strong>Créer le document définitif</strong><p>Cette action fige la version actuelle. Toute correction ultérieure créera une nouvelle version.</p></div><button class="button danger" type="button" id="closeRecord">Valider et créer le document définitif</button></div>
+      <div class="closure-box" id="newVersionBox" hidden><div><strong>Document déjà clôturé</strong><p>Le document signé reste intact. Une correction démarre une nouvelle version.</p></div><button class="button primary" type="button" id="newVersion">Créer une nouvelle version</button></div>
+    </section>
+
+    <section class="record-section" id="documents">
+      <div class="section-heading"><div><span class="step-kicker">ARCHIVES</span><h2>Documents définitifs</h2><p>Chaque version clôturée reste disponible sans être remplacée.</p></div></div>
+      <div class="document-list" id="documentList"></div>
+    </section>
+  </main>
+
+  <dialog class="signature-dialog" id="signatureDialog">
+    <form method="dialog">
+      <div class="panel-heading"><div><span class="step-kicker">ATTESTATION</span><h2 id="signatureTitle">Signer</h2><p>Tracez votre signature dans le cadre.</p></div><button class="icon-button" value="cancel" aria-label="Fermer">×</button></div>
+      <canvas id="signatureCanvas" aria-label="Zone de signature"></canvas>
+      <div class="form-actions"><button class="button ghost" type="button" id="clearSignature">Effacer</button><button class="button sign" type="button" id="confirmSignature">Confirmer ma signature</button></div>
+    </form>
+  </dialog>
+  <script src="stagiaires.js?v=20260812-1"></script>
+</body>
+</html>

@@ -1,36 +1,81 @@
 # Suivi des agents responsables
 
-Site interne de suivi de l’intégration des nouveaux agents, publié sur `responsable.esapin.com`.
+Portail interne publié sur `responsable.esapin.com`. Le suivi des stagiaires brancardiers repose désormais sur un moteur Cloudflare autonome ; Google Apps Script n’est pas utilisé par ce nouveau module.
 
-## Accès
+## Suivi des stagiaires
 
-- La connexion utilise uniquement un code personnel de six chiffres lu directement dans l’onglet `Annuaire` du fichier source Google Sheets.
-- Les quatre chefs et l’administrateur Eddy Sapin sont autorisés.
-- Une cellule vide n’autorise aucun accès ; un code présent devient utilisable immédiatement.
-- Les codes doivent être uniques. Un code dupliqué est refusé.
-- Modifier ou supprimer un code dans le Sheet invalide l’ancien accès et les sessions correspondantes lors de leur prochaine validation.
-- Aucun e-mail et aucun code d’accès ne doivent être ajoutés au dépôt GitHub ni copiés dans Cloudflare.
+Le module couvre le cycle complet :
 
-## Architecture
+- création rapide de la fiche à l’arrivée ;
+- sauvegarde durable et réouverture à tout moment ;
+- observations personnelles de plusieurs agents ;
+- signature limitée au témoignage réellement rédigé par chaque agent ;
+- lien privé, révocable et temporaire pour le stagiaire ;
+- partie propre au stagiaire et signature ;
+- évaluation finale sur les six critères attendus ;
+- clôture réservée aux administrateurs et chefs ;
+- PDF définitif institutionnel archivé dans un espace privé ;
+- nouvelle version obligatoire après clôture, sans remplacement du document signé ;
+- journal d’audit non modifiable.
 
-- Le site statique `responsable.esapin.com` affiche la connexion et les écrans de suivi.
-- Le Worker Cloudflare `suivi-agents-api`, exposé sur `responsable-api.esapin.com`, contrôle l’origine, limite les tentatives, signe les sessions dans un cookie sécurisé et protège toutes les actions de lecture et d’écriture.
-- Le Worker délègue l’authentification et la revalidation des sessions à Apps Script, qui lit directement l’onglet `Annuaire` du Google Sheet.
-- Apps Script écrit dans les feuilles et documents Google et impose l’identité du responsable connecté pour les écritures concernées.
+## Architecture minimale
 
-## Fonctionnalités
+| Élément | Rôle |
+|---|---|
+| Site statique GitHub Pages | Écrans de l’équipe et du stagiaire |
+| Un Worker Cloudflare | Authentification, règles métier, génération des PDF et API |
+| Une base Cloudflare D1 | Fiches, utilisateurs, observations, versions et audit |
+| Un bucket Cloudflare R2 privé | Images de signature et PDF définitifs |
+| GitHub | Source unique, historique, tests et déclenchement du déploiement |
 
-- Accueil : **Suivi des agents** et **Prendre des notes**.
-- Suivi : **Suivre un agent** et **Ajouter un agent**.
-- Fiche agent : **Suivi d’intégration**, **Évaluations** et **Situations / événements**.
-- Évaluations : brouillons, version officielle, PDF et choix **Éléments insuffisants pour évaluer**.
+Le fichier [`wrangler.jsonc`](wrangler.jsonc) est la source de vérité du Worker. D1 et R2 sont déclarés sans identifiant : Wrangler peut les créer automatiquement lors du premier déploiement connecté à GitHub. Le schéma D1 s’initialise ensuite automatiquement et de manière idempotente depuis la migration versionnée.
 
-## Vérifications locales
+Le dossier Google Drive existant peut rester un espace d’export ou de consultation. Il n’est ni la base de données ni une dépendance du fonctionnement quotidien. Le dossier `Formule 1 officielle modèle` étant actuellement vide, le PDF utilise la présentation institutionnelle GHE incluse dans le code ; un futur modèle pourra la remplacer sans modifier les anciens PDF.
+
+## Transition sans coupure
+
+Les rubriques historiques de suivi des nouveaux agents continuent temporairement à utiliser Apps Script. Le Worker conserve donc une passerelle de compatibilité uniquement pour ces anciennes actions.
+
+Lorsqu’une personne déjà autorisée se reconnecte, son identité est copiée de façon sécurisée dans D1. Un administrateur peut ensuite gérer les accès du module stagiaires directement sur le site. Aucun code personnel n’est stocké en clair.
+
+La passerelle historique pourra être retirée lorsque les autres rubriques auront été migrées et vérifiées. Cette suppression fera l’objet d’une version distincte afin d’éviter toute coupure.
+
+## Sécurité et intégrité
+
+- Cookies `HttpOnly`, `Secure` et `SameSite=Strict`.
+- Origine web autorisée explicitement.
+- Limitation des tentatives de connexion et d’échange de liens.
+- Codes protégés par HMAC pour la recherche et PBKDF2 avec sel pour la vérification.
+- Jetons de partage stockés uniquement sous forme d’empreinte.
+- Objets R2 privés, servis seulement après contrôle d’accès.
+- Empreinte SHA-256 des signatures et de chaque PDF.
+- Verrous SQL empêchant la modification ou la suppression des signatures, documents et événements d’audit.
+- Une observation signée, la partie stagiaire signée et l’évaluation finale signée deviennent immuables.
+- Aucun secret, code d’accès ou donnée de production dans GitHub.
+
+## Vérifications
 
 ```bash
-node --test site-security.test.cjs apps-script/security.test.cjs
-npm test --prefix backend
-./backend/node_modules/.bin/tsc --noEmit -p backend/tsconfig.json
+npm ci
+npm run typecheck
+npm test
+npm run types
 ```
 
-L’ordre de publication est impératif : publier la version Apps Script qui contient `authenticateAccess` et `authorizeAccess`, publier le Worker sur `responsable-api.esapin.com`, tester l’API et la connexion, puis publier le site statique. Les valeurs `API_KEY`, `APPS_SCRIPT_KEY`, `APPS_SCRIPT_URL` et `SESSION_SECRET` restent dans les propriétés ou secrets des services et ne sont jamais versionnées.
+Les tests couvrent notamment : initialisation d’une D1 vide, création d’un administrateur, connexion, création d’une fiche, lien stagiaire, sauvegarde, signatures multiples, refus de modifier une observation signée, clôture, génération et lecture du PDF, puis ouverture d’une nouvelle version.
+
+## Déploiement
+
+1. Les changements sont préparés dans une branche et une pull request brouillon.
+2. Les tests et le build Cloudflare doivent réussir.
+3. Après validation explicite, la pull request est fusionnée dans `main`.
+4. GitHub Pages publie le site et Workers Builds déploie le Worker `suivi-agents-responsables`.
+5. Le premier appel au nouveau module initialise automatiquement le schéma D1.
+
+Secrets Cloudflare :
+
+- `SESSION_SECRET` — obligatoire, déjà utilisé pour les sessions ;
+- `APPS_SCRIPT_URL` et `APPS_SCRIPT_KEY` — conservés uniquement pendant la transition des anciennes rubriques ;
+- `BOOTSTRAP_TOKEN` — facultatif, réservé à une initialisation de secours lorsqu’aucun compte ni passerelle historique n’est disponible.
+
+Avant la mise en production avec de vraies données, le responsable doit fixer la durée de conservation des dossiers et confirmer les personnes ayant le rôle `CHEF`.
