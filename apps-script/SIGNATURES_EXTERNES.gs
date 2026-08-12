@@ -191,12 +191,36 @@ function attachExternalAgentSignatureToPayload_(p) {
 
   const ev = externalSignatureEvaluation_(evaluationId);
   assertExternalSignatureSnapshot_(request, ev);
+  const connectedEvaluator = clean_(p.evaluateur);
+  if (connectedEvaluator && normalize_(connectedEvaluator) !== normalize_(ev.evaluateur)) {
+    throw new Error('EVALUATEUR_DIFFERENT_APRES_SIGNATURE_AGENT');
+  }
   if (!request.id_fichier_signature) throw new Error('FICHIER_SIGNATURE_AGENT_MANQUANT');
   const blob = DriveApp.getFileById(request.id_fichier_signature).getBlob();
   const bytes = blob.getBytes();
   if (sha256Hex_(bytes) !== request.sha256_signature) throw new Error('EMPREINTE_SIGNATURE_AGENT_INVALIDE');
-  p.signatures = p.signatures && typeof p.signatures === 'object' ? p.signatures : {};
-  p.signatures.agent = 'data:image/png;base64,' + Utilities.base64Encode(bytes);
+
+  const localSignatures = p.signatures && typeof p.signatures === 'object' ? p.signatures : {};
+  p.id_agent = ev.id_agent;
+  p.id_evaluation = ev.id_evaluation;
+  p.grade = ev.grade;
+  p.service = ev.service;
+  p.date_evaluation = ev.date_evaluation;
+  p.evaluateur = ev.evaluateur;
+  p.lyon_le = ev.lyon_le;
+  p.garder_agent = ev.garder_agent;
+  p.observations_1 = ev.observations_1;
+  p.observations_2 = ev.observations_2;
+  p.observations_3 = ev.observations_3;
+  p.observations_4 = ev.observations_4;
+  p.observations_5 = ev.observations_5;
+  p.observations_generales = ev.observations_generales;
+  p.criteres = Object.assign({}, ev.criteres);
+  p.signatures = {
+    agent:'data:image/png;base64,' + Utilities.base64Encode(bytes),
+    responsable:clean_(localSignatures.responsable),
+    direction:clean_(localSignatures.direction)
+  };
   return p;
 }
 
@@ -317,7 +341,7 @@ function latestExternalSignatureRequest_(evaluationId) {
 
 function requireExternalSignatureByToken_(rawToken, allowSigned) {
   const token = clean_(rawToken);
-  if (!/^[A-Za-z0-9_-]{40,100}$/.test(token)) throw new Error('LIEN_SIGNATURE_INVALIDE');
+  if (!/^[A-Za-z0-9_-]{40,120}$/.test(token)) throw new Error('LIEN_SIGNATURE_INVALIDE');
   const hash = externalSignatureHashText_(token);
   const request = externalSignatureRows_().find(x => x.token_hash === hash);
   if (!request) throw new Error('LIEN_SIGNATURE_INVALIDE');
@@ -364,9 +388,9 @@ function publicExternalSignatureStatus_(request) {
 }
 
 function createExternalSignatureToken_() {
-  const bytes = [];
-  for (let i=0;i<48;i++) bytes.push(Math.floor(Math.random()*256));
-  return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/,'');
+  return [Utilities.getUuid(),Utilities.getUuid(),Utilities.getUuid()]
+    .map(value => value.replace(/-/g,''))
+    .join('');
 }
 
 function externalSignatureHashText_(text) {
