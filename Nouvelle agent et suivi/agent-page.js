@@ -1,5 +1,17 @@
 const id=new URL(location.href).searchParams.get("id"),status=q("#status"),view=q("#view"),edit=q("#edit"),follow=q("#follow"),form=q("#editForm"),es=q("#editStatus");
-let agent=null,fullLoaded=false;
+let agent=null,fullLoaded=false,warmed=false;
+
+function warmAgentModules(){
+  if(warmed||!id)return;
+  warmed=true;
+  setTimeout(()=>{
+    apiGet("getFirstDay",{id}).catch(()=>{});
+    apiGet("listEvaluations",{id}).then(data=>{
+      const latest=(data.evaluations||[])[0];
+      if(latest?.id_evaluation)apiGet("getEvaluation",{id:latest.id_evaluation}).catch(()=>{});
+    }).catch(()=>{});
+  },80);
+}
 
 function paint(a,{partial=false}={}){
   agent={...(agent||{}),...a};
@@ -18,6 +30,7 @@ function paint(a,{partial=false}={}){
   q("#editBtn").disabled=partial&&!fullLoaded;
   if(partial)setStatus(status,"warn","Fiche disponible. Les détails se mettent à jour en arrière-plan…");
   else status.className="status";
+  warmAgentModules();
 }
 
 async function loadSummary(){
