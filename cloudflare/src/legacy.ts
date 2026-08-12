@@ -154,15 +154,14 @@ async function syncIdentityMirror(env: Env, principal: Principal): Promise<void>
   try {
     await env.DB.prepare(
       `INSERT INTO users
-        (id, first_name, last_name, display_name, position, role, permissions_json, last_verified_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, first_name, last_name, display_name, position, last_verified_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
         first_name = excluded.first_name, last_name = excluded.last_name, display_name = excluded.display_name,
-        position = excluded.position, role = excluded.role, permissions_json = excluded.permissions_json,
-        last_verified_at = excluded.last_verified_at, updated_at = excluded.updated_at`,
+        position = excluded.position, last_verified_at = excluded.last_verified_at, updated_at = excluded.updated_at`,
     ).bind(
       principal.id, principal.firstName, principal.lastName, principal.displayName, principal.position,
-      principal.role, JSON.stringify(principal.access), now, now, now,
+      now, now, now,
     ).run();
   } catch (error) {
     console.warn(JSON.stringify({ event: "identity_mirror_sync_failed", message: error instanceof Error ? error.message : String(error) }));

@@ -91,15 +91,21 @@ describe("parcours complet d’une fiche stagiaire", () => {
         (id, first_name, last_name, display_name, position, role, permissions_json, pin_lookup, pin_salt, pin_hash, pin_iterations, session_version, legacy_access_version, active, created_at, updated_at)
        VALUES ('old-user', 'Eddy', 'SAPIN', 'Eddy SAPIN', 'Responsable', 'ADMIN', '{"nouveau_stagiaire":true}', 'lookup', 'salt', 'hash', 210000, 'session', 'legacy', 1, ?, ?)`,
     ).bind(now, now).run();
+    await fresh.prepare(
+      `INSERT INTO users
+        (id, first_name, last_name, display_name, position, role, permissions_json, pin_lookup, pin_salt, pin_hash, pin_iterations, session_version, legacy_access_version, active, created_at, updated_at)
+       VALUES ('d1-only-user', 'Compte', 'D1', 'Compte D1', 'Ancien accès local', 'AGENT', '{}', 'lookup-local', 'salt', 'hash', 210000, 'session-local', '', 1, ?, ?)`,
+    ).bind(now, now).run();
     await ensureSchema({ ...runtime, DB: fresh });
     const row = await fresh.prepare("SELECT MAX(version) AS version FROM app_schema_migrations").first<{ version: number }>();
     expect(row?.version).toBe(2);
     const columns = await fresh.prepare("PRAGMA table_info(users)").all<{ name: string }>();
     expect(columns.results.map(column => column.name)).toEqual([
-      "id", "first_name", "last_name", "display_name", "position", "role",
-      "permissions_json", "last_verified_at", "created_at", "updated_at",
+      "id", "first_name", "last_name", "display_name", "position",
+      "last_verified_at", "created_at", "updated_at",
     ]);
     expect(await fresh.prepare("SELECT display_name FROM users WHERE id = 'old-user'").first<{ display_name: string }>()).toEqual({ display_name: "Eddy SAPIN" });
+    expect(await fresh.prepare("SELECT id FROM users WHERE id = 'd1-only-user'").first()).toBeNull();
   });
 
   it("relit immédiatement le code et la colonne OK de l’Annuaire", async () => {

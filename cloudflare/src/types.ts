@@ -42,8 +42,6 @@ export interface UserRow {
   last_name: string;
   display_name: string;
   position: string;
-  role: Role;
-  permissions_json: string;
   last_verified_at: string;
   created_at: string;
   updated_at: string;

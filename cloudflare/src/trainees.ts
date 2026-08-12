@@ -204,8 +204,8 @@ async function listTrainees(request: Request, env: Env, origin: string): Promise
 async function listDirectory(request: Request, env: Env, origin: string): Promise<Response> {
   requireGet(request);
   await traineeStaffSession(request, env);
-  const result = await env.DB.prepare("SELECT id, display_name, position, role FROM users ORDER BY last_name, first_name").all<Pick<UserRow, "id" | "display_name" | "position" | "role">>();
-  return json({ ok: true, users: result.results.map(user => ({ id: user.id, displayName: user.display_name, position: user.position, role: user.role })) }, 200, origin);
+  const result = await env.DB.prepare("SELECT id, display_name, position FROM users ORDER BY last_name, first_name").all<Pick<UserRow, "id" | "display_name" | "position">>();
+  return json({ ok: true, users: result.results.map(user => ({ id: user.id, displayName: user.display_name, position: user.position })) }, 200, origin);
 }
 
 async function createTrainee(request: Request, env: Env, origin: string): Promise<Response> {

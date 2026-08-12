@@ -77,5 +77,5 @@ test("les codes et les boutons restent commandés uniquement par l’Annuaire XL
   assert.doesNotMatch(security, /findUserByPin|pinCredentials|roleAccess/);
   assert.doesNotMatch(workerRoutes, /\/v2\/admin\/users|setup\/bootstrap/);
   assert.doesNotMatch(dashboard, /adminPanel|createUserForm|Code personnel à 6 chiffres/);
-  assert.doesNotMatch(migration, /pin_lookup|pin_hash|pin_salt|pin_iterations/);
+  assert.doesNotMatch(migration, /pin_lookup|pin_hash|pin_salt|pin_iterations|permissions_json|\brole\b/);
 });

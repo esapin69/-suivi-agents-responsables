@@ -4,18 +4,17 @@ CREATE TABLE users_identity_mirror (
   last_name TEXT NOT NULL,
   display_name TEXT NOT NULL,
   position TEXT NOT NULL DEFAULT '',
-  role TEXT NOT NULL CHECK (role IN ('ADMIN', 'CHEF', 'AGENT')),
-  permissions_json TEXT NOT NULL DEFAULT '{}',
   last_verified_at TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 ) STRICT;
 
 INSERT INTO users_identity_mirror
-  (id, first_name, last_name, display_name, position, role, permissions_json, last_verified_at, created_at, updated_at)
+  (id, first_name, last_name, display_name, position, last_verified_at, created_at, updated_at)
 SELECT
-  id, first_name, last_name, display_name, position, role, permissions_json, updated_at, created_at, updated_at
-FROM users;
+  id, first_name, last_name, display_name, position, updated_at, created_at, updated_at
+FROM users
+WHERE legacy_access_version <> '';
 
 DROP TABLE users;
 ALTER TABLE users_identity_mirror RENAME TO users;
