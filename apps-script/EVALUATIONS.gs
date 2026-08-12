@@ -175,9 +175,48 @@ function generateOfficialEvaluation_(r){
   const folder=DriveApp.getFolderById(EVAL_CONFIG.DEST_FOLDER_ID);
   const safeName=(r.nom+' '+r.prenom+' - Evaluation '+displayDateFr_(r.date_evaluation)+' - v'+r.version).replace(/[\\/:*?"<>|]/g,'-');
   const copied=convertWordTemplateToGoogleDoc_(safeName),googleDocFile=DriveApp.getFileById(copied.id),doc=openConvertedDocument_(copied.id);
+  enforceOfficialTwoPageLayout_(doc);
   fillOfficialDocument_(doc,r); doc.saveAndClose(); Utilities.sleep(1000);
   const pdfBlob=googleDocFile.getAs(MimeType.PDF).setName(safeName+'.pdf'),pdfFile=folder.createFile(pdfBlob);
   return {googleDocFile,pdfFile};
+}
+
+function elementText_(element){
+  try{return element&&typeof element.getText==='function'?String(element.getText()||''):'';}catch(_){return '';}
+}
+
+function removePageBreaksInside_(container){
+  if(!container||typeof container.getNumChildren!=='function') return;
+  for(let i=container.getNumChildren()-1;i>=0;i--){
+    const child=container.getChild(i);
+    if(child.getType()===DocumentApp.ElementType.PAGE_BREAK){child.removeFromParent();continue;}
+    if(child.getType()===DocumentApp.ElementType.PARAGRAPH||child.getType()===DocumentApp.ElementType.LIST_ITEM) removePageBreaksInside_(child);
+  }
+}
+
+function childContainsPageBreak_(child){
+  if(!child||typeof child.getNumChildren!=='function') return false;
+  for(let i=0;i<child.getNumChildren();i++) if(child.getChild(i).getType()===DocumentApp.ElementType.PAGE_BREAK) return true;
+  return false;
+}
+
+function enforceOfficialTwoPageLayout_(doc){
+  const body=doc.getBody();
+  let markerIndex=-1,section4Index=-1;
+  for(let i=0;i<body.getNumChildren();i++){
+    const normalized=normalize_(elementText_(body.getChild(i)));
+    if(markerIndex<0&&normalized.indexOf('FICHEDEVALUATION2026PAMCARDIO')>=0&&normalized.indexOf('PAGE22')>=0) markerIndex=i;
+    if(section4Index<0&&normalized.indexOf('IVCOMPORTEMENTENVERSLESMALADES')>=0) section4Index=i;
+  }
+  if(markerIndex<0||section4Index<0||markerIndex>=section4Index) throw new Error('REPERE_PAGE_2_INTROUVABLE');
+
+  // Une conversion Word -> Google Docs peut laisser le bandeau « PAGE 2 / 2 »
+  // en bas de la page précédente. On retire tout ancien saut entre le bandeau
+  // et la section IV, puis on force le saut AVANT le bandeau.
+  for(let i=markerIndex+1;i<section4Index;i++) removePageBreaksInside_(body.getChild(i));
+
+  const previous=markerIndex>0?body.getChild(markerIndex-1):null;
+  if(!childContainsPageBreak_(previous)) body.insertPageBreak(markerIndex);
 }
 
 function fillOfficialDocument_(doc,r){
