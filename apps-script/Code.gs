@@ -58,6 +58,8 @@ function doGet(e) {
           result = {ok:true, evaluations:listEvaluations_(String(e.parameter.id || ''))};
         } else if (action === 'getEvaluation') {
           result = {ok:true, evaluation:getEvaluationById_(String(e.parameter.id || ''))};
+        } else if (action === 'getAgentSignatureStatus') {
+          result = {ok:true, request:getAgentSignatureStatus_(String(e.parameter.id || ''))};
         } else {
           throw new Error('ACTION_INCONNUE');
         }
@@ -78,6 +80,10 @@ function doPost(e) {
 
     if (action === 'authenticateAccess') {
       result = authenticateAccess_(payload.code);
+    } else if (action === 'publicGetAgentSignature') {
+      result = publicGetAgentSignature_(payload);
+    } else if (action === 'publicSubmitAgentSignature') {
+      result = publicSubmitAgentSignature_(payload);
     } else {
       const principal = requireAuthorizedPrincipal_(
         payload.auth_user_id,
@@ -117,11 +123,27 @@ function doPost(e) {
       }
       else if (action === 'saveEvaluationDraft') {
         payload.evaluateur = responsibleName;
+        if (typeof assertEvaluationExternalSignatureWritable_ === 'function') {
+          assertEvaluationExternalSignatureWritable_(payload.id_evaluation);
+        }
         result = saveEvaluationDraft_(payload);
+      }
+      else if (action === 'createAgentSignatureRequest') {
+        result = createAgentSignatureRequest_(payload, principal);
+      }
+      else if (action === 'cancelAgentSignatureRequest') {
+        result = cancelAgentSignatureRequest_(payload, principal);
       }
       else if (action === 'finalizeEvaluation') {
         payload.evaluateur = responsibleName;
+        if (typeof attachExternalAgentSignatureToPayload_ === 'function') {
+          attachExternalAgentSignatureToPayload_(payload);
+        }
         result = finalizeEvaluation_(payload);
+        if (result && result.ok && typeof markExternalAgentSignatureFinalized_ === 'function') {
+          try { markExternalAgentSignatureFinalized_(payload.id_evaluation || (result.evaluation && result.evaluation.id_evaluation)); }
+          catch (syncErr) { console.error('FINALIZE_EXTERNAL_SIGNATURE', syncErr); }
+        }
         if (result && result.ok && typeof syncAgentEvaluationIndex_ === 'function') {
           try { syncAgentEvaluationIndex_(payload.id_agent); } catch (syncErr) { console.error('SYNC_EVALUATION_INDEX', syncErr); }
         }
@@ -255,11 +277,14 @@ function accessForAction_(action) {
     getFollowupOverview: 'suivi_des_agents',
     listEvaluations: 'suivi_des_agents',
     getEvaluation: 'suivi_des_agents',
+    getAgentSignatureStatus: 'suivi_des_agents',
     createAgent: 'suivi_des_agents',
     updateAgent: 'suivi_des_agents',
     saveFirstDay: 'suivi_des_agents',
     saveFollowup: 'suivi_des_agents',
     saveEvaluationDraft: 'suivi_des_agents',
+    createAgentSignatureRequest: 'suivi_des_agents',
+    cancelAgentSignatureRequest: 'suivi_des_agents',
     finalizeEvaluation: 'suivi_des_agents',
     submitSituation: 'suivi_des_agents'
   };
