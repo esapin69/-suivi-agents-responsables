@@ -22,6 +22,8 @@ const POST_ACTIONS = new Set([
   "submitSituation",
 ]);
 
+type AccessMap = Record<string, boolean>;
+
 type AuthUser = {
   id: string;
   nom: string;
@@ -29,6 +31,7 @@ type AuthUser = {
   poste: string;
   display_name: string;
   is_admin: boolean;
+  access: AccessMap;
 };
 
 type SessionPayload = AuthUser & {
@@ -42,7 +45,6 @@ type JsonObject = Record<string, unknown>;
 
 class UpstreamError extends Error {
   readonly code: string;
-
   constructor(code: string, message: string) {
     super(message);
     this.code = code;
@@ -56,9 +58,7 @@ export default {
     const origin = request.headers.get("Origin") || "";
 
     if (request.method === "OPTIONS") {
-      if (origin !== ALLOWED_ORIGIN) {
-        return apiError("ORIGINE_REFUSEE", "Origine non autorisée.", 403, origin);
-      }
+      if (origin !== ALLOWED_ORIGIN) return apiError("ORIGINE_REFUSEE", "Origine non autorisée.", 403, origin);
       return new Response(null, { status: 204, headers: responseHeaders(origin) });
     }
 
@@ -70,33 +70,18 @@ export default {
       requireSecrets(env);
 
       if (action === "health") {
-        if (request.method !== "GET") {
-          return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
-        }
-        return apiJson(
-          { ok: true, service: "suivi-agents", time: new Date().toISOString() },
-          200,
-          origin,
-        );
+        if (request.method !== "GET") return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
+        return apiJson({ ok: true, service: "suivi-agents", time: new Date().toISOString() }, 200, origin);
       }
 
       if (action === "login") {
-        if (request.method !== "POST") {
-          return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
-        }
+        if (request.method !== "POST") return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
         return await login(request, env, origin);
       }
 
       if (action === "logout") {
-        if (request.method !== "POST") {
-          return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
-        }
-        return apiJson(
-          { ok: true },
-          200,
-          origin,
-          { "Set-Cookie": clearSessionCookie() },
-        );
+        if (request.method !== "POST") return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
+        return apiJson({ ok: true }, 200, origin, { "Set-Cookie": clearSessionCookie() });
       }
 
       const session = await sessionFromRequest(request, env.SESSION_SECRET);
@@ -110,21 +95,20 @@ export default {
         );
       }
 
-      const principal = await authorizedPrincipal(session, env);
-
+      // Important : la session est signée par Cloudflare. Aucun appel Google n'est
+      // nécessaire uniquement pour afficher une nouvelle page.
       if (action === "session") {
-        if (request.method !== "GET") {
-          return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
-        }
-        return apiJson({ ok: true, user: principal }, 200, origin);
+        if (request.method !== "GET") return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
+        return apiJson({ ok: true, user: publicSessionUser(session) }, 200, origin);
       }
 
+      // Pour une vraie opération, Apps Script revalide déjà auth_user_id +
+      // auth_session_version dans requireAuthorizedPrincipal_. On ne fait donc
+      // plus un deuxième appel authorizeAccess avant l'action réelle.
       if (request.method === "GET") {
-        if (!GET_ACTIONS.has(action)) {
-          return apiError("ACTION_REFUSEE", "Action non autorisée.", 403, origin);
-        }
+        if (!GET_ACTIONS.has(action)) return apiError("ACTION_REFUSEE", "Action non autorisée.", 403, origin);
         const params: Record<string, string> = {
-          auth_user_id: principal.id,
+          auth_user_id: session.id,
           auth_session_version: session.access_version,
         };
         const id = incoming.searchParams.get("id");
@@ -134,18 +118,14 @@ export default {
       }
 
       if (request.method === "POST") {
-        if (!POST_ACTIONS.has(action)) {
-          return apiError("ACTION_REFUSEE", "Action non autorisée.", 403, origin);
-        }
+        if (!POST_ACTIONS.has(action)) return apiError("ACTION_REFUSEE", "Action non autorisée.", 403, origin);
         const payload = await readJsonBody(request, MAX_BODY_BYTES);
-        payload.auth_user_id = principal.id;
+        payload.auth_user_id = session.id;
         payload.auth_session_version = session.access_version;
-
-        if (action === "saveFirstDay") payload.chef_nom = principal.display_name;
+        if (action === "saveFirstDay") payload.chef_nom = session.display_name;
         if (action === "saveEvaluationDraft" || action === "finalizeEvaluation") {
-          payload.evaluateur = principal.display_name;
+          payload.evaluateur = session.display_name;
         }
-
         const result = await callAppsScript(env, "POST", action, payload, {});
         return apiJson(result, 200, origin);
       }
@@ -154,23 +134,13 @@ export default {
     } catch (error) {
       if (error instanceof UpstreamError) {
         const status = statusForCode(error.code);
-        const message = status === 401
-          ? "Code incorrect ou accès non autorisé."
-          : publicMessage(error.code, error.message);
-        const extra: HeadersInit = status === 401
-          ? { "Set-Cookie": clearSessionCookie() }
-          : {};
+        const message = status === 401 ? "Code incorrect ou accès non autorisé." : publicMessage(error.code, error.message);
+        const extra: HeadersInit = status === 401 ? { "Set-Cookie": clearSessionCookie() } : {};
         return apiError(error.code, message, status, origin, extra);
       }
-
       const message = error instanceof Error ? error.message : String(error);
       console.error(JSON.stringify({ event: "worker_error", action, message }));
-      return apiError(
-        "ERREUR_INTERNE",
-        "Le service est temporairement indisponible.",
-        500,
-        origin,
-      );
+      return apiError("ERREUR_INTERNE", "Le service est temporairement indisponible.", 500, origin);
     }
   },
 } satisfies ExportedHandler<Env>;
@@ -195,12 +165,7 @@ async function login(request: Request, env: Env, origin: string): Promise<Respon
   const payload = await readJsonBody(request, MAX_LOGIN_BODY_BYTES);
   const code = String(payload.code || "").trim();
   if (!/^\d{6}$/.test(code)) {
-    return apiError(
-      "CODE_INVALIDE",
-      "Le code doit contenir exactement 6 chiffres.",
-      401,
-      origin,
-    );
+    return apiError("CODE_INVALIDE", "Le code doit contenir exactement 6 chiffres.", 401, origin);
   }
 
   const result = await callAppsScript(env, "POST", "authenticateAccess", { code }, {});
@@ -210,39 +175,26 @@ async function login(request: Request, env: Env, origin: string): Promise<Respon
     throw new UpstreamError("AUTH_INVALIDE", "Version d’accès invalide.");
   }
 
-  const token = await createSessionToken(
-    { ...user, access_version: accessVersion },
-    env.SESSION_SECRET,
-  );
-
-  return apiJson(
-    { ok: true, user },
-    200,
-    origin,
-    { "Set-Cookie": sessionCookie(token) },
-  );
+  const token = await createSessionToken({ ...user, access_version: accessVersion }, env.SESSION_SECRET);
+  return apiJson({ ok: true, user }, 200, origin, { "Set-Cookie": sessionCookie(token) });
 }
 
-async function authorizedPrincipal(session: SessionPayload, env: Env): Promise<AuthUser> {
-  const result = await callAppsScript(
-    env,
-    "GET",
-    "authorizeAccess",
-    {},
-    {
-      auth_user_id: session.id,
-      auth_session_version: session.access_version,
-    },
-  );
-  return validateAuthUser(result.user);
+function publicSessionUser(session: SessionPayload): AuthUser {
+  return {
+    id: session.id,
+    nom: session.nom,
+    prenom: session.prenom,
+    poste: session.poste,
+    display_name: session.display_name,
+    is_admin: session.is_admin,
+    access: session.access,
+  };
 }
 
 function requireSecrets(env: Env): void {
   if (!env.APPS_SCRIPT_URL) throw new Error("APPS_SCRIPT_URL_MANQUANTE");
   if (!env.APPS_SCRIPT_KEY) throw new Error("APPS_SCRIPT_KEY_MANQUANTE");
-  if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32) {
-    throw new Error("SESSION_SECRET_MANQUANT");
-  }
+  if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 32) throw new Error("SESSION_SECRET_MANQUANT");
 }
 
 async function callAppsScript(
@@ -258,19 +210,11 @@ async function callAppsScript(
     const googleUrl = new URL(env.APPS_SCRIPT_URL);
     googleUrl.searchParams.set("key", env.APPS_SCRIPT_KEY);
     googleUrl.searchParams.set("action", action);
-    for (const [key, value] of Object.entries(params)) {
-      if (value) googleUrl.searchParams.set(key, value);
-    }
-    response = await fetch(googleUrl.toString(), {
-      method: "GET",
-      redirect: "follow",
-    });
+    for (const [key, value] of Object.entries(params)) if (value) googleUrl.searchParams.set(key, value);
+    response = await fetch(googleUrl.toString(), { method: "GET", redirect: "follow" });
   } else {
     const body = new URLSearchParams();
-    body.set(
-      "payload",
-      JSON.stringify({ ...payload, action, key: env.APPS_SCRIPT_KEY }),
-    );
+    body.set("payload", JSON.stringify({ ...payload, action, key: env.APPS_SCRIPT_KEY }));
     response = await fetch(env.APPS_SCRIPT_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
@@ -281,12 +225,7 @@ async function callAppsScript(
 
   const raw = await response.text();
   const data = parseAppsScriptResponse(raw);
-  if (!data) {
-    throw new UpstreamError(
-      "REPONSE_GOOGLE_INVALIDE",
-      "Le service de données n’a pas renvoyé une réponse exploitable.",
-    );
-  }
+  if (!data) throw new UpstreamError("REPONSE_GOOGLE_INVALIDE", "Le service de données n’a pas renvoyé une réponse exploitable.");
   if (data.ok === false) {
     throw new UpstreamError(
       String(data.code || "ERREUR_GOOGLE"),
@@ -297,29 +236,18 @@ async function callAppsScript(
 }
 
 function parseAppsScriptResponse(raw: string): JsonObject | null {
-  try {
-    return JSON.parse(raw) as JsonObject;
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(raw) as JsonObject; }
+  catch { return null; }
 }
 
 async function readJsonBody(request: Request, maxBytes: number): Promise<JsonObject> {
   const declared = Number(request.headers.get("content-length") || 0);
-  if (declared > maxBytes) {
-    throw new UpstreamError("CORPS_TROP_VOLUMINEUX", "Données trop volumineuses.");
-  }
-
+  if (declared > maxBytes) throw new UpstreamError("CORPS_TROP_VOLUMINEUX", "Données trop volumineuses.");
   const raw = await request.text();
-  if (new TextEncoder().encode(raw).byteLength > maxBytes) {
-    throw new UpstreamError("CORPS_TROP_VOLUMINEUX", "Données trop volumineuses.");
-  }
-
+  if (new TextEncoder().encode(raw).byteLength > maxBytes) throw new UpstreamError("CORPS_TROP_VOLUMINEUX", "Données trop volumineuses.");
   try {
     const parsed: unknown = JSON.parse(raw || "{}");
-    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
-      throw new Error("invalid shape");
-    }
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error("invalid shape");
     return parsed as JsonObject;
   } catch {
     throw new UpstreamError("JSON_INVALIDE", "Le site a envoyé des données invalides.");
@@ -330,8 +258,8 @@ function validateAuthUser(value: unknown): AuthUser {
   if (!value || Array.isArray(value) || typeof value !== "object") {
     throw new UpstreamError("AUTH_INVALIDE", "Identité invalide.");
   }
-
   const source = value as Record<string, unknown>;
+  const access = validateAccessMap(source.access);
   const user: AuthUser = {
     id: String(source.id || ""),
     nom: String(source.nom || ""),
@@ -339,12 +267,21 @@ function validateAuthUser(value: unknown): AuthUser {
     poste: String(source.poste || ""),
     display_name: String(source.display_name || ""),
     is_admin: source.is_admin === true,
+    access,
   };
-
   if (!user.id || !user.nom || !user.prenom || !user.display_name) {
     throw new UpstreamError("AUTH_INVALIDE", "Identité incomplète.");
   }
   return user;
+}
+
+function validateAccessMap(value: unknown): AccessMap {
+  if (!value || Array.isArray(value) || typeof value !== "object") return {};
+  const result: AccessMap = {};
+  for (const [key, allowed] of Object.entries(value as Record<string, unknown>)) {
+    if (/^[a-z0-9_]{1,80}$/.test(key) && typeof allowed === "boolean") result[key] = allowed;
+  }
+  return result;
 }
 
 export async function createSessionToken(
@@ -358,9 +295,7 @@ export async function createSessionToken(
     exp: nowSeconds + SESSION_TTL_SECONDS,
     version: 1,
   };
-  const encodedPayload = base64UrlEncode(
-    new TextEncoder().encode(JSON.stringify(payload)),
-  );
+  const encodedPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const signature = await sign(encodedPayload, secret);
   return `${encodedPayload}.${base64UrlEncode(signature)}`;
 }
@@ -374,11 +309,8 @@ export async function readSessionToken(
   if (!encodedPayload || !encodedSignature || extra) return null;
 
   let signature: Uint8Array;
-  try {
-    signature = base64UrlDecode(encodedSignature);
-  } catch {
-    return null;
-  }
+  try { signature = base64UrlDecode(encodedSignature); }
+  catch { return null; }
 
   const key = await hmacKey(secret, ["verify"]);
   const valid = await crypto.subtle.verify(
@@ -390,9 +322,7 @@ export async function readSessionToken(
   if (!valid) return null;
 
   try {
-    const parsed: unknown = JSON.parse(
-      new TextDecoder().decode(base64UrlDecode(encodedPayload)),
-    );
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(base64UrlDecode(encodedPayload)));
     if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") return null;
     const payload = parsed as Partial<SessionPayload>;
     if (
@@ -405,24 +335,21 @@ export async function readSessionToken(
       typeof payload.prenom !== "string" ||
       typeof payload.poste !== "string" ||
       typeof payload.is_admin !== "boolean" ||
+      !payload.access || Array.isArray(payload.access) || typeof payload.access !== "object" ||
       typeof payload.access_version !== "string" ||
       !/^[A-Za-z0-9_-]{32,128}$/.test(payload.access_version) ||
       payload.exp <= nowSeconds ||
       payload.iat > nowSeconds + 60 ||
       payload.exp - payload.iat !== SESSION_TTL_SECONDS
-    ) {
-      return null;
-    }
+    ) return null;
+    payload.access = validateAccessMap(payload.access);
     return payload as SessionPayload;
   } catch {
     return null;
   }
 }
 
-async function sessionFromRequest(
-  request: Request,
-  secret: string,
-): Promise<SessionPayload | null> {
+async function sessionFromRequest(request: Request, secret: string): Promise<SessionPayload | null> {
   const token = readCookie(request.headers.get("Cookie") || "", SESSION_COOKIE);
   if (!token) return null;
   return await readSessionToken(token, secret);
@@ -430,11 +357,7 @@ async function sessionFromRequest(
 
 async function sign(value: string, secret: string): Promise<Uint8Array> {
   const key = await hmacKey(secret, ["sign"]);
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(value),
-  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
   return new Uint8Array(signature);
 }
 
@@ -450,10 +373,7 @@ async function hmacKey(secret: string, usages: KeyUsage[]): Promise<CryptoKey> {
 
 async function loginLimiterKey(request: Request): Promise<string> {
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(ip),
-  );
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ip));
   return base64UrlEncode(new Uint8Array(digest));
 }
 
@@ -476,17 +396,14 @@ function clearSessionCookie(): string {
 function base64UrlEncode(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function base64UrlDecode(value: string): Uint8Array {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
   const binary = atob(padded);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
 }
 
 function statusForCode(code: string): number {
@@ -503,9 +420,7 @@ function publicMessage(code: string, fallback: string): string {
   if (/CONFIG|ACCES_REFUSE|SERVICE_AVANCE|CONVERSION|GENERATION|VERIFICATION|REPONSE_GOOGLE/.test(code)) {
     return "Le service est temporairement indisponible.";
   }
-  if (/ACCES|AUTH|CODE/.test(code)) {
-    return "Code incorrect ou accès non autorisé.";
-  }
+  if (/ACCES|AUTH|CODE/.test(code)) return "Code incorrect ou accès non autorisé.";
   return fallback || "La demande n’a pas pu être traitée.";
 }
 
@@ -519,7 +434,6 @@ function responseHeaders(origin: string, extra: HeadersInit = {}): Headers {
     "Cross-Origin-Resource-Policy": "same-site",
     Vary: "Origin",
   });
-
   if (origin === ALLOWED_ORIGIN) {
     headers.set("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
     headers.set("Access-Control-Allow-Credentials", "true");
@@ -527,30 +441,15 @@ function responseHeaders(origin: string, extra: HeadersInit = {}): Headers {
     headers.set("Access-Control-Allow-Headers", "Content-Type");
     headers.set("Access-Control-Max-Age", "86400");
   }
-
   const additions = new Headers(extra);
   additions.forEach((value, key) => headers.set(key, value));
   return headers;
 }
 
-function apiJson(
-  data: unknown,
-  status: number,
-  origin: string,
-  extra: HeadersInit = {},
-): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: responseHeaders(origin, extra),
-  });
+function apiJson(data: unknown, status: number, origin: string, extra: HeadersInit = {}): Response {
+  return new Response(JSON.stringify(data), { status, headers: responseHeaders(origin, extra) });
 }
 
-function apiError(
-  code: string,
-  message: string,
-  status: number,
-  origin: string,
-  extra: HeadersInit = {},
-): Response {
+function apiError(code: string, message: string, status: number, origin: string, extra: HeadersInit = {}): Response {
   return apiJson({ ok: false, code, message }, status, origin, extra);
 }
