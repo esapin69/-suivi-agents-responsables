@@ -1,0 +1,36 @@
+name: Apps Script Sync
+
+on:
+  workflow_dispatch:
+
+jobs:
+  push-apps-script:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps-script
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Restore clasp OAuth
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo "Missing GitHub secret CLASPRC_JSON" && exit 1)
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify target project
+        run: clasp status
+
+      - name: Push Apps Script source
+        run: clasp push --force
