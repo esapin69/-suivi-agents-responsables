@@ -525,7 +525,7 @@ async function closeRecord(request: Request, env: Env, origin: string, traineeId
     throw new ApiError("SIGNATURE_RESPONSABLE_MANQUANTE", "La signature finale d’un responsable est nécessaire.", 409);
   }
   if (!finalSignatures.some(signature => signature.signer_role === "TRAINEE")) {
-    throw new ApiError("SIGNATURE_STAGIAIRE_MANQUANTE", "La signature finale du stagiaire est nécessaire.", 409);
+    throw new ApiError("SIGNATURE_STAGIAIRE_MANQUANTE", "L’attestation de prise de connaissance du stagiaire est nécessaire.", 409);
   }
 
   const unsignedAuthors: string[] = [];

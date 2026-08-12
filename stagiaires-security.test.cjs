@@ -30,6 +30,25 @@ test("le lien stagiaire est échangé contre un cookie puis retiré de l’adres
   assert.doesNotMatch(source, /localStorage|sessionStorage/);
 });
 
+test("le lien stagiaire peut être préparé dans un SMS sans prestataire externe", () => {
+  const source = fs.readFileSync(projectFile("stagiaires.js"), "utf8");
+  const html = fs.readFileSync(projectFile("fiche-stagiaire.html"), "utf8");
+  assert.match(source, /sms:\$\{recipient\}\?body=/);
+  assert.match(source, /Vous pouvez compléter votre partie, l’enregistrer pour y revenir plus tard/);
+  assert.match(source, /navigator\.clipboard\.writeText/);
+  assert.match(html, /id="shareBySms"/);
+  assert.doesNotMatch(source, /twilio|vonage|messagebird/i);
+});
+
+test("l’interface distingue témoignage, expression personnelle et prise de connaissance", () => {
+  const source = fs.readFileSync(projectFile("stagiaires.js"), "utf8");
+  const html = fs.readFileSync(projectFile("fiche-stagiaire.html"), "utf8");
+  const pdf = fs.readFileSync(projectFile("cloudflare", "src", "pdf.ts"), "utf8");
+  assert.match(source, /Elle ne signifie pas que vous approuvez chaque appréciation/);
+  assert.match(html, /Sa signature atteste uniquement les propos qu’il a lui-même écrits/);
+  assert.match(pdf, /sans valoir accord avec chaque appréciation/);
+});
+
 test("les éléments signés et les documents disposent de verrous en base", () => {
   const schema = fs.readFileSync(projectFile("cloudflare", "migrations", "0001_initial.sql"), "utf8");
   for (const trigger of [

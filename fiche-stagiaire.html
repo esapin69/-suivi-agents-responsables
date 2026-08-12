@@ -34,7 +34,7 @@
     </section>
 
     <section class="record-section" id="stagiaire">
-      <div class="section-heading"><div><span class="step-kicker">PAROLE DU STAGIAIRE</span><h2>Mon retour sur le stage</h2><p>Cette partie appartient au stagiaire. Une fois signée, elle est figée pour cette version.</p></div></div>
+      <div class="section-heading"><div><span class="step-kicker">PAROLE DU STAGIAIRE</span><h2>Mon retour sur le stage</h2><p>Cette partie appartient au stagiaire. Sa signature atteste uniquement les propos qu’il a lui-même écrits et les fige pour cette version.</p></div></div>
       <form id="selfSectionForm" class="stack-form">
         <label>Mes attentes<textarea name="expectations" rows="3" maxlength="5000"></textarea></label>
         <label>Ma progression ressentie<textarea name="progress" rows="3" maxlength="5000"></textarea></label>
@@ -46,7 +46,7 @@
     </section>
 
     <section class="record-section" id="final">
-      <div class="section-heading"><div><span class="step-kicker">FIN DU STAGE</span><h2>Évaluation synthétique</h2><p>Remplie par un responsable, puis signée par le responsable et le stagiaire.</p></div></div>
+      <div class="section-heading"><div><span class="step-kicker">FIN DU STAGE</span><h2>Évaluation synthétique</h2><p>Remplie et attestée par un responsable. Le stagiaire signe pour confirmer qu’il en a pris connaissance, sans devoir approuver chaque appréciation.</p></div></div>
       <form id="finalEvaluationForm" class="evaluation-form">
         <div class="rating-grid" id="ratingGrid"></div>
         <label>Points forts<textarea name="strengths" rows="4" maxlength="5000" required></textarea></label>
@@ -67,11 +67,19 @@
 
   <dialog class="signature-dialog" id="signatureDialog">
     <form method="dialog">
-      <div class="panel-heading"><div><span class="step-kicker">ATTESTATION</span><h2 id="signatureTitle">Signer</h2><p>Tracez votre signature dans le cadre.</p></div><button class="icon-button" value="cancel" aria-label="Fermer">×</button></div>
+      <div class="panel-heading"><div><span class="step-kicker">ATTESTATION</span><h2 id="signatureTitle">Signer</h2><p id="signatureHelp">Tracez votre signature dans le cadre.</p></div><button class="icon-button" value="cancel" aria-label="Fermer">×</button></div>
       <canvas id="signatureCanvas" aria-label="Zone de signature"></canvas>
       <div class="form-actions"><button class="button ghost" type="button" id="clearSignature">Effacer</button><button class="button sign" type="button" id="confirmSignature">Confirmer ma signature</button></div>
     </form>
   </dialog>
-  <script src="stagiaires.js?v=20260812-1"></script>
+
+  <dialog class="signature-dialog share-dialog" id="shareDialog">
+    <form method="dialog">
+      <div class="panel-heading"><div><span class="step-kicker">LIEN PERSONNEL</span><h2>Envoyer la fiche au stagiaire</h2><p>Le stagiaire pourra compléter uniquement sa partie, l’enregistrer, revenir plus tard et la signer lorsqu’elle sera définitive.</p></div><button class="icon-button" value="cancel" aria-label="Fermer">×</button></div>
+      <div class="readonly-card"><div class="readonly-block"><strong>Portée de la signature</strong><p>Sa signature atteste ses propres écrits. Pour l’évaluation finale, elle atteste seulement qu’il en a pris connaissance.</p></div><div class="readonly-block"><strong>Durée du lien</strong><p id="shareExpiry">Le lien est en cours de préparation.</p></div></div>
+      <div class="form-actions card-actions"><a class="button primary" id="shareBySms" href="">Ouvrir mes SMS</a><button class="button ghost" type="button" id="copyShareLink">Copier le lien</button><button class="button" value="cancel">Fermer</button></div>
+    </form>
+  </dialog>
+  <script src="stagiaires.js?v=20260812-2"></script>
 </body>
 </html>

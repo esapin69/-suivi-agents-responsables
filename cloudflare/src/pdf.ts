@@ -97,7 +97,7 @@ export async function generateFinalPdf(
   labeledParagraph(cursor, "Synthèse du responsable", snapshot.finalEvaluation.summary);
 
   section(cursor, "SIGNATURES ET PORTÉE DES ATTESTATIONS");
-  paragraph(cursor, "Chaque agent signe uniquement l’observation qu’il a personnellement rédigée. Sa signature n’emporte pas validation de l’intégralité de l’évaluation. Les signatures finales attestent la prise de connaissance du bilan correspondant à cette version.", true);
+  paragraph(cursor, "Chaque agent signe uniquement l’observation qu’il a personnellement rédigée ; sa signature ne valide pas l’intégralité de l’évaluation. La signature de l’expression du stagiaire atteste ses propres propos. Sa signature finale atteste seulement la prise de connaissance du bilan correspondant à cette version, sans valoir accord avec chaque appréciation.", true);
   for (const signature of snapshot.signatures) {
     ensure(cursor, 68);
     cursor.page.drawRectangle({ x: 42, y: cursor.y - 55, width: 511, height: 55, borderColor: LINE, borderWidth: 0.7 });

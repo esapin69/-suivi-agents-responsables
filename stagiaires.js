@@ -213,12 +213,24 @@
     byId("cancelObservationEdit").addEventListener("click", resetObservationForm);
     byId("observationList").addEventListener("click", observationAction);
     byId("selfSectionForm").addEventListener("submit", saveSelfSection);
-    byId("signSelfSection").addEventListener("click", () => openSignature("Signer ma partie", signature => signScope("self-section/signature", signature)));
+    byId("signSelfSection").addEventListener("click", () => openSignature(
+      "Signer mes propres écrits",
+      signature => signScope("self-section/signature", signature),
+      "Votre signature atteste uniquement les propos que vous avez écrits dans cette partie.",
+    ));
     byId("finalEvaluationForm").addEventListener("submit", saveFinalEvaluation);
-    byId("signFinalEvaluation").addEventListener("click", () => openSignature("Signer l’évaluation finale", signature => signScope("final-evaluation/signature", signature)));
+    byId("signFinalEvaluation").addEventListener("click", () => openSignature(
+      state.mode === "trainee" ? "Attester ma prise de connaissance" : "Signer l’évaluation finale",
+      signature => signScope("final-evaluation/signature", signature),
+      state.mode === "trainee"
+        ? "Votre signature confirme seulement que vous avez pris connaissance de l’évaluation. Elle ne signifie pas que vous approuvez chaque appréciation."
+        : "Votre signature atteste l’évaluation finale correspondant à cette version.",
+    ));
     byId("closeRecord").addEventListener("click", closeRecord);
     byId("newVersion").addEventListener("click", newVersion);
     byId("documentList").addEventListener("click", downloadDocument);
+    byId("copyShareLink").addEventListener("click", copyPreparedShareLink);
+    byId("shareBySms").addEventListener("click", () => setTimeout(() => byId("shareDialog").close(), 0));
     setupSignaturePad();
   }
 
@@ -237,7 +249,7 @@
       <h1>${esc(trainee.displayName)}</h1>
       <p>${esc(trainee.school || "Établissement non renseigné")} · du ${formatDate(trainee.startDate)} au ${formatDate(trainee.endDate)}</p>
       <div class="record-meta"><span>${trainee.status === "CLOSED" ? "Dossier clôturé" : "Stage en cours"}</span><span>Tuteur : ${esc(trainee.tutorName || "non renseigné")}</span>${trainee.arrivalNotes ? `<span>Repères d’arrivée enregistrés</span>` : ""}</div>
-      ${state.mode === "user" && isManager() ? '<div class="record-actions"><button class="button" type="button" id="createShare">Créer le lien du stagiaire</button><button class="button" type="button" id="revokeShares">Révoquer les anciens liens</button></div>' : ""}`;
+      ${state.mode === "user" && isManager() ? `<div class="record-actions">${trainee.status === "OPEN" ? '<button class="button" type="button" id="createShare">Envoyer la fiche au stagiaire</button>' : ""}<button class="button" type="button" id="revokeShares">Révoquer les anciens liens</button></div>` : ""}`;
     byId("createShare")?.addEventListener("click", createShare);
     byId("revokeShares")?.addEventListener("click", revokeShares);
     renderObservations();
@@ -278,7 +290,11 @@
       form.scrollIntoView({ behavior: "smooth" });
     }
     if (event.target.closest("[data-sign-observation]")) {
-      openSignature("Signer mon observation", signature => signScope(`observations/${encodeURIComponent(observation.id)}/signature`, signature));
+      openSignature(
+        "Signer mon observation",
+        signature => signScope(`observations/${encodeURIComponent(observation.id)}/signature`, signature),
+        "Votre signature atteste uniquement cette observation personnelle. Elle ne valide pas l’ensemble de l’évaluation.",
+      );
     }
   }
 
@@ -357,6 +373,7 @@
     for (const name of ["strengths", "improvements", "summary"]) { form.elements[name].value = evaluation?.[name] || ""; form.elements[name].disabled = !canEdit; }
     byId("saveFinalEvaluation").hidden = !canEdit;
     byId("signFinalEvaluation").hidden = !(canSignUser || canSignTrainee);
+    byId("signFinalEvaluation").textContent = state.mode === "trainee" ? "Attester ma prise de connaissance" : "Signer l’évaluation finale";
     if (state.mode === "trainee" && evaluation) readonly.innerHTML = readonlyBlocks([
       ...ratingFields.map(([name, label]) => [label, ratingLabel(ratings[name])]),
       ["Points forts", evaluation.strengths], ["Points à améliorer", evaluation.improvements], ["Synthèse", evaluation.summary],
@@ -384,12 +401,38 @@
     showNotice(byId("recordNotice"), "La signature est enregistrée et cette partie est maintenant figée.", "success");
   }
 
-  async function createShare() {
+  async function createShare(event) {
+    const button = event.currentTarget;
+    pending(button, true, "Préparation du SMS…");
     try {
       const data = await api(`/v2/trainees/${state.traineeId}/share-link`, { method: "POST", body: { expiresDays: 90 } });
-      try { await navigator.clipboard.writeText(data.link); showNotice(byId("recordNotice"), `Lien copié. Il reste valable jusqu’au ${formatDate(data.expiresAt)}.`, "success"); }
-      catch { window.prompt("Copiez ce lien et transmettez-le uniquement au stagiaire :", data.link); }
+      const message = `Bonjour,\n\nVoici votre lien personnel pour votre fiche de stage GHE. Vous pouvez compléter votre partie, l’enregistrer pour y revenir plus tard, puis la signer lorsqu’elle est définitive.\n\n${data.link}\n\nCe lien est personnel : ne le transférez pas.`;
+      const recipient = smsRecipient(state.record.trainee.phone);
+      const smsLink = byId("shareBySms");
+      smsLink.href = `sms:${recipient}?body=${encodeURIComponent(message)}`;
+      smsLink.dataset.link = data.link;
+      byId("shareExpiry").textContent = `Valable jusqu’au ${formatDate(data.expiresAt)}. Il peut être révoqué à tout moment.`;
+      byId("shareDialog").showModal();
+      showNotice(byId("recordNotice"), "Le lien personnel est prêt. Ouvrez vos SMS pour choisir ou confirmer le destinataire.", "success");
     } catch (error) { showNotice(byId("recordNotice"), error.message, "error"); }
+    finally { pending(button, false); }
+  }
+
+  function smsRecipient(value) {
+    const normalized = String(value || "").replace(/[^\d+]/g, "");
+    return /^\+?\d{6,15}$/.test(normalized) ? normalized : "";
+  }
+
+  async function copyPreparedShareLink() {
+    const link = byId("shareBySms").dataset.link || "";
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      showNotice(byId("recordNotice"), "Le lien personnel a été copié.", "success");
+      byId("shareDialog").close();
+    } catch {
+      window.prompt("Copiez ce lien et transmettez-le uniquement au stagiaire :", link);
+    }
   }
 
   async function revokeShares() {
@@ -485,10 +528,11 @@
     state.resizeSignature = resize;
   }
 
-  function openSignature(title, action) {
+  function openSignature(title, action, help = "Tracez votre signature dans le cadre.") {
     const dialog = byId("signatureDialog");
     state.signatureAction = action;
     byId("signatureTitle").textContent = title;
+    byId("signatureHelp").textContent = help;
     dialog.showModal();
     requestAnimationFrame(() => state.resizeSignature());
   }
