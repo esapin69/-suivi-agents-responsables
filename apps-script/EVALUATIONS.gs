@@ -175,7 +175,6 @@ function generateOfficialEvaluation_(r){
   const folder=DriveApp.getFolderById(EVAL_CONFIG.DEST_FOLDER_ID);
   const safeName=(r.nom+' '+r.prenom+' - Evaluation '+displayDateFr_(r.date_evaluation)+' - v'+r.version).replace(/[\\/:*?"<>|]/g,'-');
   const copied=convertWordTemplateToGoogleDoc_(safeName),googleDocFile=DriveApp.getFileById(copied.id),doc=openConvertedDocument_(copied.id);
-  enforceOfficialTwoPageLayout_(doc);
   fillOfficialDocument_(doc,r); doc.saveAndClose(); Utilities.sleep(1000);
   const pdfBlob=googleDocFile.getAs(MimeType.PDF).setName(safeName+'.pdf'),pdfFile=folder.createFile(pdfBlob);
   return {googleDocFile,pdfFile};
@@ -190,13 +189,15 @@ function removePageBreaksInside_(container){
   for(let i=container.getNumChildren()-1;i>=0;i--){
     const child=container.getChild(i);
     if(child.getType()===DocumentApp.ElementType.PAGE_BREAK){child.removeFromParent();continue;}
-    if(child.getType()===DocumentApp.ElementType.PARAGRAPH||child.getType()===DocumentApp.ElementType.LIST_ITEM) removePageBreaksInside_(child);
+    if(typeof child.getNumChildren==='function') removePageBreaksInside_(child);
   }
 }
 
 function childContainsPageBreak_(child){
-  if(!child||typeof child.getNumChildren!=='function') return false;
-  for(let i=0;i<child.getNumChildren();i++) if(child.getChild(i).getType()===DocumentApp.ElementType.PAGE_BREAK) return true;
+  if(!child) return false;
+  if(child.getType&&child.getType()===DocumentApp.ElementType.PAGE_BREAK) return true;
+  if(typeof child.getNumChildren!=='function') return false;
+  for(let i=0;i<child.getNumChildren();i++) if(childContainsPageBreak_(child.getChild(i))) return true;
   return false;
 }
 
@@ -210,9 +211,6 @@ function enforceOfficialTwoPageLayout_(doc){
   }
   if(markerIndex<0||section4Index<0||markerIndex>=section4Index) throw new Error('REPERE_PAGE_2_INTROUVABLE');
 
-  // Une conversion Word -> Google Docs peut laisser le bandeau « PAGE 2 / 2 »
-  // en bas de la page précédente. On retire tout ancien saut entre le bandeau
-  // et la section IV, puis on force le saut AVANT le bandeau.
   for(let i=markerIndex+1;i<section4Index;i++) removePageBreaksInside_(body.getChild(i));
 
   const previous=markerIndex>0?body.getChild(markerIndex-1):null;
@@ -231,6 +229,7 @@ function fillOfficialDocument_(doc,r){
   fillObservations_(doc,[r.observations_1,r.observations_2,r.observations_3,r.observations_4,r.observations_5,r.observations_generales]);
   replaceEverywhere_(doc,/OUI\s*[☐☒]?\s*NON\s*[☐☒]?/i,r.garder_agent==='OUI'?'OUI ☒   NON ☐':'OUI ☐   NON ☒');
   insertSignatures_(doc,r.signatures||{});
+  enforceOfficialTwoPageLayout_(doc);
 }
 
 function walkParagraphs_(container,callback){
