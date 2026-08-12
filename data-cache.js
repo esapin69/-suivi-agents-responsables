@@ -1,7 +1,7 @@
 (()=>{
   "use strict";
 
-  const PREFIX="ghe:data:v2:";
+  const PREFIX="ghe:data:v3:";
   const nativeFetch=window.fetch.bind(window);
 
   const API_POLICIES={
@@ -34,6 +34,8 @@
     return null;
   }
 
+  function storageFor(policy){return policy&&policy.scope==="api"?sessionStorage:localStorage;}
+
   function normalizedKey(url){
     const copy=new URL(url.toString());
     copy.searchParams.delete("t");
@@ -41,9 +43,9 @@
     return PREFIX+copy.toString();
   }
 
-  function readEntry(key){
+  function readEntry(storage,key){
     try{
-      const raw=localStorage.getItem(key);
+      const raw=storage.getItem(key);
       if(!raw)return null;
       const parsed=JSON.parse(raw);
       if(!parsed||typeof parsed!=="object"||typeof parsed.body!=="string"||typeof parsed.time!=="number")return null;
@@ -51,11 +53,11 @@
     }catch(_){return null;}
   }
 
-  function writeEntry(key,response,body){
+  function writeEntry(storage,key,response,body){
     try{
       const headers={};
       response.headers.forEach((v,k)=>{if(["content-type","etag","last-modified"].includes(k.toLowerCase()))headers[k]=v;});
-      localStorage.setItem(key,JSON.stringify({time:Date.now(),status:response.status,statusText:response.statusText,headers,body}));
+      storage.setItem(key,JSON.stringify({time:Date.now(),status:response.status,statusText:response.statusText,headers,body}));
     }catch(_){pruneOldEntries();}
   }
 
@@ -65,38 +67,45 @@
     return new Response(entry.body,{status:entry.status||200,statusText:entry.statusText||"OK",headers});
   }
 
-  async function networkAndStore(input,init,key){
+  async function networkAndStore(input,init,storage,key){
     const response=await nativeFetch(input,init);
     if(response.ok){
       const clone=response.clone();
       const body=await clone.text();
-      writeEntry(key,response,body);
+      writeEntry(storage,key,response,body);
     }
     return response;
   }
 
-  function backgroundRefresh(input,init,key){
-    networkAndStore(input,init,key).catch(()=>{});
+  function backgroundRefresh(input,init,storage,key){
+    networkAndStore(input,init,storage,key).catch(()=>{});
   }
 
-  function pruneOldEntries(){
+  function pruneStorage(storage,maxAge){
     try{
       const now=Date.now();
-      Object.keys(localStorage).filter(k=>k.startsWith(PREFIX)).forEach(k=>{
-        const e=readEntry(k);
-        if(!e||now-e.time>24*60*60_000)localStorage.removeItem(k);
+      Object.keys(storage).filter(k=>k.startsWith(PREFIX)).forEach(k=>{
+        const e=readEntry(storage,k);
+        if(!e||now-e.time>maxAge)storage.removeItem(k);
       });
     }catch(_){}
   }
 
-  function clearAll(){
-    try{Object.keys(localStorage).filter(k=>k.startsWith(PREFIX)).forEach(k=>localStorage.removeItem(k));}catch(_){}
+  function pruneOldEntries(){
+    pruneStorage(sessionStorage,8*60*60_000);
+    pruneStorage(localStorage,24*60*60_000);
   }
+
+  function clearStorage(storage){
+    try{Object.keys(storage).filter(k=>k.startsWith(PREFIX)).forEach(k=>storage.removeItem(k));}catch(_){}
+  }
+
+  function clearAll(){clearStorage(sessionStorage);clearStorage(localStorage);}
 
   function clearApiForAgent(id){
     try{
-      Object.keys(localStorage).filter(k=>k.startsWith(PREFIX)).forEach(k=>{
-        if(k.includes("responsable-api.esapin.com")&&(!id||k.includes("id="+encodeURIComponent(id))))localStorage.removeItem(k);
+      Object.keys(sessionStorage).filter(k=>k.startsWith(PREFIX)).forEach(k=>{
+        if(k.includes("responsable-api.esapin.com")&&(!id||k.includes("id="+encodeURIComponent(id))))sessionStorage.removeItem(k);
       });
     }catch(_){}
   }
@@ -120,17 +129,18 @@
     const policy=policyFor(url,method);
     if(!policy)return nativeFetch(input,init);
 
+    const storage=storageFor(policy);
     const key=normalizedKey(url);
-    const entry=readEntry(key);
+    const entry=readEntry(storage,key);
     const age=entry?Date.now()-entry.time:Infinity;
 
     if(entry&&age<policy.fresh)return cachedResponse(entry,"FRESH");
     if(entry&&age<policy.stale){
-      backgroundRefresh(input,init,key);
+      backgroundRefresh(input,init,storage,key);
       return cachedResponse(entry,"STALE");
     }
 
-    try{return await networkAndStore(input,init,key);}
+    try{return await networkAndStore(input,init,storage,key);}
     catch(error){
       if(entry)return cachedResponse(entry,"FALLBACK");
       throw error;
