@@ -46,18 +46,6 @@
     </section>
     <section class="trainee-list" id="traineeList" aria-live="polite"><div class="loading-card">Chargement des fiches…</div></section>
 
-    <section class="panel admin-panel" id="adminPanel" hidden>
-      <div class="panel-heading"><div><span class="step-kicker">ADMINISTRATION</span><h2>Accès de l’équipe</h2><p>Les codes restent privés et ne sont jamais affichés après enregistrement.</p></div><button class="button ghost" type="button" id="toggleUserForm">Ajouter une personne</button></div>
-      <form id="createUserForm" class="form-grid compact" hidden>
-        <label>Prénom<input name="firstName" maxlength="80" required></label>
-        <label>Nom<input name="lastName" maxlength="80" required></label>
-        <label>Fonction<input name="position" maxlength="120"></label>
-        <label>Rôle<select name="role"><option value="AGENT">Agent accompagnant</option><option value="CHEF">Chef / responsable</option><option value="ADMIN">Administrateur</option></select></label>
-        <label>Code personnel à 6 chiffres<input name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="new-password" required></label>
-        <div class="form-actions wide"><button class="button primary" type="submit">Enregistrer l’accès</button></div>
-      </form>
-      <div class="user-list" id="userList"></div>
-    </section>
   </main>
   <script src="Nouvelle%20agent%20et%20suivi/app.js?v=20260812-stagiaires-1"></script>
   <script src="stagiaires.js?v=20260812-1"></script>

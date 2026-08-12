@@ -8,7 +8,6 @@ export interface Env {
   DB: D1Database;
   DOCUMENTS: R2Bucket;
   SESSION_SECRET: string;
-  BOOTSTRAP_TOKEN?: string;
   APPS_SCRIPT_URL?: string;
   APPS_SCRIPT_KEY?: string;
   LOGIN_IP_LIMITER: RateLimiter;
@@ -25,7 +24,7 @@ export interface Principal {
   displayName: string;
   position: string;
   role: Role;
-  source: "d1" | "legacy";
+  source: "legacy";
   sessionVersion: string;
   access: AccessMap;
 }
@@ -45,13 +44,9 @@ export interface UserRow {
   position: string;
   role: Role;
   permissions_json: string;
-  pin_lookup: string;
-  pin_salt: string;
-  pin_hash: string;
-  pin_iterations: number;
-  session_version: string;
-  legacy_access_version: string;
-  active: number;
+  last_verified_at: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TraineeRow {

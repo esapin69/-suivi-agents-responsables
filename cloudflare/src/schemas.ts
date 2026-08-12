@@ -76,27 +76,3 @@ export const shareExchangeSchema = z.object({ token: z.string().min(32).max(200)
 
 export const closeSchema = z.object({ expectedVersion: recordVersion }).strict();
 export const newVersionSchema = z.object({ expectedVersion: recordVersion }).strict();
-
-export const userCreateSchema = z.object({
-  firstName: requiredText(80),
-  lastName: requiredText(80),
-  position: cleanText(120).default(""),
-  role: z.enum(["ADMIN", "CHEF", "AGENT"]),
-  pin: z.string().regex(/^\d{6}$/),
-  permissions: z.record(z.string().regex(/^[a-z0-9_]{1,80}$/), z.boolean()).default({}),
-}).strict();
-
-export const userUpdateSchema = z.object({
-  firstName: requiredText(80).optional(),
-  lastName: requiredText(80).optional(),
-  position: cleanText(120).optional(),
-  role: z.enum(["ADMIN", "CHEF", "AGENT"]).optional(),
-  pin: z.string().regex(/^\d{6}$/).optional(),
-  permissions: z.record(z.string().regex(/^[a-z0-9_]{1,80}$/), z.boolean()).optional(),
-  active: z.boolean().optional(),
-}).strict();
-
-export const bootstrapSchema = userCreateSchema.extend({
-  token: z.string().min(32).max(300),
-  role: z.literal("ADMIN").default("ADMIN"),
-}).strict();

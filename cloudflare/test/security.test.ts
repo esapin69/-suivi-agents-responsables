@@ -9,7 +9,7 @@ const principal = {
   displayName: "Eddy SAPIN",
   position: "Administrateur",
   role: "ADMIN" as const,
-  source: "d1" as const,
+  source: "legacy" as const,
   sessionVersion: "session-version-0123456789abcdef",
   access: { suivi_des_stagiaires: true },
 };

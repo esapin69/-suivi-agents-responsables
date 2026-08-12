@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
-import { describe, expect, it } from "vitest";
+import { applyD1Migrations } from "cloudflare:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../src/index";
 import type { Env } from "../src/types";
 import { ensureSchema } from "../src/schema";
@@ -7,6 +8,52 @@ import { ensureSchema } from "../src/schema";
 const origin = "https://responsable.esapin.com";
 const runtime = env as unknown as Env;
 const signatureDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+const appsScript = {
+  code: "123456",
+  sessionVersion: "annuaire-session-version-0123456789abcdef",
+  traineeAccess: true,
+};
+
+function annuaireUser() {
+  return {
+    id: "annuaire-eddy",
+    nom: "SAPIN",
+    prenom: "Eddy",
+    poste: "Responsable",
+    display_name: "Eddy SAPIN",
+    is_admin: true,
+    access: { nouveau_stagiaire: appsScript.traineeAccess, suivi_des_agents: true },
+  };
+}
+
+beforeEach(() => {
+  appsScript.code = "123456";
+  appsScript.sessionVersion = "annuaire-session-version-0123456789abcdef";
+  appsScript.traineeAccess = true;
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(input, init);
+    const url = new URL(request.url);
+    if (url.origin !== "https://apps-script.test") return new Response("not mocked", { status: 502 });
+
+    if (request.method === "POST") {
+      const form = await request.formData();
+      const payload = JSON.parse(String(form.get("payload") || "{}")) as Record<string, unknown>;
+      if (payload.action === "authenticateAccess" && payload.code === appsScript.code) {
+        return Response.json({ ok: true, user: annuaireUser(), session_version: appsScript.sessionVersion });
+      }
+      return Response.json({ ok: false, code: "AUTH_INVALIDE" });
+    }
+
+    if (url.searchParams.get("action") === "authorizeAccess") {
+      const valid = url.searchParams.get("auth_user_id") === annuaireUser().id
+        && url.searchParams.get("auth_session_version") === appsScript.sessionVersion;
+      return Response.json(valid ? { ok: true, user: annuaireUser() } : { ok: false, code: "AUTH_REQUISE" });
+    }
+    return Response.json({ ok: false, code: "ACTION_INCONNUE" });
+  }));
+});
+
+afterEach(() => vi.unstubAllGlobals());
 
 async function api(path: string, options: { method?: string; body?: unknown; cookie?: string } = {}): Promise<Response> {
   const headers = new Headers({ Origin: origin, Accept: "application/json" });
@@ -31,27 +78,52 @@ async function responseJson(response: Response): Promise<any> {
 }
 
 describe("parcours complet d’une fiche stagiaire", () => {
-  it("initialise automatiquement une base D1 entièrement vide", async () => {
-    const fresh = (env as unknown as { FRESH_DB: D1Database }).FRESH_DB;
+  it("initialise D1 sans aucun code ni mot de passe du personnel", async () => {
+    const testEnv = env as unknown as {
+      FRESH_DB: D1Database;
+      TEST_MIGRATIONS: Parameters<typeof applyD1Migrations>[1];
+    };
+    const fresh = testEnv.FRESH_DB;
+    await applyD1Migrations(fresh, [testEnv.TEST_MIGRATIONS[0]!]);
+    const now = new Date().toISOString();
+    await fresh.prepare(
+      `INSERT INTO users
+        (id, first_name, last_name, display_name, position, role, permissions_json, pin_lookup, pin_salt, pin_hash, pin_iterations, session_version, legacy_access_version, active, created_at, updated_at)
+       VALUES ('old-user', 'Eddy', 'SAPIN', 'Eddy SAPIN', 'Responsable', 'ADMIN', '{"nouveau_stagiaire":true}', 'lookup', 'salt', 'hash', 210000, 'session', 'legacy', 1, ?, ?)`,
+    ).bind(now, now).run();
     await ensureSchema({ ...runtime, DB: fresh });
     const row = await fresh.prepare("SELECT MAX(version) AS version FROM app_schema_migrations").first<{ version: number }>();
-    expect(row?.version).toBe(1);
+    expect(row?.version).toBe(2);
+    const columns = await fresh.prepare("PRAGMA table_info(users)").all<{ name: string }>();
+    expect(columns.results.map(column => column.name)).toEqual([
+      "id", "first_name", "last_name", "display_name", "position", "role",
+      "permissions_json", "last_verified_at", "created_at", "updated_at",
+    ]);
+    expect(await fresh.prepare("SELECT display_name FROM users WHERE id = 'old-user'").first<{ display_name: string }>()).toEqual({ display_name: "Eddy SAPIN" });
+  });
+
+  it("relit immédiatement le code et la colonne OK de l’Annuaire", async () => {
+    const loginResponse = await api("/v2/auth/login", { method: "POST", body: { code: "123456" } });
+    const userCookie = sessionCookie(loginResponse);
+    expect(loginResponse.status).toBe(200);
+    expect((await api("/v2/admin/users", { cookie: userCookie })).status).toBe(404);
+
+    appsScript.traineeAccess = false;
+    const portalSession = await api("/?action=session", { cookie: userCookie });
+    expect(portalSession.status).toBe(200);
+    expect((await portalSession.json() as any).user.access.nouveau_stagiaire).toBe(false);
+    const blockedModule = await api("/v2/trainees", { cookie: userCookie });
+    expect(blockedModule.status).toBe(403);
+    expect((await blockedModule.json() as any).code).toBe("ACCES_REFUSE");
+
+    appsScript.traineeAccess = true;
+    appsScript.sessionVersion = "annuaire-session-version-changed-0123456789";
+    const expiredSession = await api("/?action=session", { cookie: userCookie });
+    expect(expiredSession.status).toBe(401);
+    expect(expiredSession.headers.get("Set-Cookie")).toContain("Max-Age=0");
   });
 
   it("conserve, signe, clôture, fige puis crée une nouvelle version", async () => {
-    const bootstrapResponse = await api("/v2/setup/bootstrap", {
-      method: "POST",
-      body: {
-        token: "bootstrap-0123456789abcdef0123456789abcdef",
-        firstName: "Eddy",
-        lastName: "Sapin",
-        position: "Administrateur",
-        role: "ADMIN",
-        pin: "123456",
-        permissions: {},
-      },
-    });
-    expect(bootstrapResponse.status).toBe(201);
 
     const loginResponse = await api("/v2/auth/login", { method: "POST", body: { code: "123456" } });
     expect(loginResponse.status).toBe(200);

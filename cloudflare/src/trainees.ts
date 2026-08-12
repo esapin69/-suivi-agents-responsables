@@ -23,7 +23,6 @@ import {
   stableStringify,
 } from "./data";
 import {
-  bootstrapSchema,
   closeSchema,
   finalEvaluationSchema,
   loginSchema,
@@ -36,27 +35,23 @@ import {
   signatureSchema,
   traineeCreateSchema,
   traineeUpdateSchema,
-  userCreateSchema,
-  userUpdateSchema,
 } from "./schemas";
 import {
   clearTraineeCookie,
   clearUserCookie,
   createTraineeSessionToken,
   limiterKey,
-  pinCredentials,
-  principalFromUserRow,
   publicUser,
   randomId,
   randomToken,
+  requireAccess,
   requireRole,
   sha256Bytes,
   sha256Text,
   traineeCookie,
   traineeSessionFromRequest,
-  userSessionFromRequest,
 } from "./security";
-import { authenticateWithPin } from "./legacy";
+import { authenticateWithPin, authorizedUserSessionFromRequest } from "./legacy";
 import { generateFinalPdf } from "./pdf";
 import { ensureSchema } from "./schema";
 
@@ -72,8 +67,6 @@ export async function handleV2(request: Request, env: Env, origin: string): Prom
   const path = url.pathname.replace(/\/+$/, "") || "/";
 
   if (path === "/v2/health") return health(request, env, origin);
-  if (path === "/v2/setup/status") return setupStatus(request, env, origin);
-  if (path === "/v2/setup/bootstrap") return bootstrap(request, env, origin);
   if (path === "/v2/auth/login") return login(request, env, origin);
   if (path === "/v2/auth/logout") return logout(request, origin);
   if (path === "/v2/auth/session") return session(request, env, origin);
@@ -85,16 +78,7 @@ export async function handleV2(request: Request, env: Env, origin: string): Prom
     if (request.method === "POST") return createTrainee(request, env, origin);
     throw new ApiError("METHODE_REFUSEE", "Méthode non autorisée.", 405);
   }
-  if (path === "/v2/admin/users") {
-    if (request.method === "GET") return listUsers(request, env, origin);
-    if (request.method === "POST") return createUser(request, env, origin);
-    throw new ApiError("METHODE_REFUSEE", "Méthode non autorisée.", 405);
-  }
-
-  let match = routeMatch(path, /^\/v2\/admin\/users\/([^/]+)$/);
-  if (match) return updateUser(request, env, origin, decodeURIComponent(match[1] || ""));
-
-  match = routeMatch(path, /^\/v2\/trainees\/([^/]+)$/);
+  let match = routeMatch(path, /^\/v2\/trainees\/([^/]+)$/);
   if (match) {
     const id = decodeURIComponent(match[1] || "");
     if (request.method === "GET") return getRecord(request, env, origin, id);
@@ -155,28 +139,6 @@ async function health(request: Request, env: Env, origin: string): Promise<Respo
   return json({ ok: true, service: "suivi-stagiaires", database, schemaVersion, time: new Date().toISOString() }, database === "ready" ? 200 : 503, origin);
 }
 
-async function setupStatus(request: Request, env: Env, origin: string): Promise<Response> {
-  requireGet(request);
-  try {
-    const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM users WHERE active = 1").first<{ count: number }>();
-    return json({ ok: true, schemaReady: true, setupRequired: Number(row?.count || 0) === 0, legacyAvailable: Boolean(env.APPS_SCRIPT_URL && env.APPS_SCRIPT_KEY) }, 200, origin);
-  } catch {
-    return json({ ok: true, schemaReady: false, setupRequired: true, legacyAvailable: Boolean(env.APPS_SCRIPT_URL && env.APPS_SCRIPT_KEY) }, 200, origin);
-  }
-}
-
-async function bootstrap(request: Request, env: Env, origin: string): Promise<Response> {
-  requirePost(request);
-  if (!env.BOOTSTRAP_TOKEN || env.BOOTSTRAP_TOKEN.length < 32) throw new ApiError("INITIALISATION_DESACTIVEE", "L’initialisation de secours n’est pas activée.", 403);
-  const input = parse(bootstrapSchema, await readJson(request));
-  const [given, expected] = await Promise.all([sha256Text(input.token), sha256Text(env.BOOTSTRAP_TOKEN)]);
-  if (given !== expected) throw new ApiError("INITIALISATION_REFUSEE", "Jeton d’initialisation incorrect.", 403);
-  const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM users").first<{ count: number }>();
-  if (Number(count?.count || 0) !== 0) throw new ApiError("INITIALISATION_TERMINEE", "Un administrateur existe déjà.", 409);
-  const user = await insertUser(env, input);
-  return json({ ok: true, user: publicUser(principalFromUserRow(user)) }, 201, origin);
-}
-
 async function login(request: Request, env: Env, origin: string): Promise<Response> {
   requirePost(request);
   const [ipLimit, globalLimit] = await Promise.all([
@@ -186,6 +148,7 @@ async function login(request: Request, env: Env, origin: string): Promise<Respon
   if (!ipLimit.success || !globalLimit.success) throw new ApiError("TROP_DE_TENTATIVES", "Trop de tentatives. Attendez une minute avant de réessayer.", 429);
   const input = parse(loginSchema, await readJson(request, 2_000));
   const authenticated = await authenticateWithPin(env, input.code);
+  requireAccess(authenticated.principal, "nouveau_stagiaire");
   return json({ ok: true, user: publicUser(authenticated.principal) }, 200, origin, { "Set-Cookie": authenticated.cookie });
 }
 
@@ -196,7 +159,7 @@ async function logout(request: Request, origin: string): Promise<Response> {
 
 async function session(request: Request, env: Env, origin: string): Promise<Response> {
   requireGet(request);
-  const current = await userSessionFromRequest(request, env, true);
+  const current = await traineeStaffSession(request, env);
   return json({ ok: true, user: publicUser(current.principal) }, 200, origin);
 }
 
@@ -224,7 +187,7 @@ async function shareLogout(request: Request, origin: string): Promise<Response> 
 
 async function listTrainees(request: Request, env: Env, origin: string): Promise<Response> {
   requireGet(request);
-  await userSessionFromRequest(request, env, true);
+  await traineeStaffSession(request, env);
   const url = new URL(request.url);
   const requestedStatus = url.searchParams.get("status");
   const status = requestedStatus === "OPEN" || requestedStatus === "CLOSED" ? requestedStatus : "";
@@ -240,15 +203,14 @@ async function listTrainees(request: Request, env: Env, origin: string): Promise
 
 async function listDirectory(request: Request, env: Env, origin: string): Promise<Response> {
   requireGet(request);
-  await userSessionFromRequest(request, env, true);
-  const result = await env.DB.prepare("SELECT id, display_name, position, role FROM users WHERE active = 1 ORDER BY last_name, first_name").all<Pick<UserRow, "id" | "display_name" | "position" | "role">>();
+  await traineeStaffSession(request, env);
+  const result = await env.DB.prepare("SELECT id, display_name, position, role FROM users ORDER BY last_name, first_name").all<Pick<UserRow, "id" | "display_name" | "position" | "role">>();
   return json({ ok: true, users: result.results.map(user => ({ id: user.id, displayName: user.display_name, position: user.position, role: user.role })) }, 200, origin);
 }
 
 async function createTrainee(request: Request, env: Env, origin: string): Promise<Response> {
   requirePost(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
-  requireRole(principal, ["ADMIN", "CHEF"]);
+  const { principal } = await traineeStaffSession(request, env);
   const input = parse(traineeCreateSchema, await readJson(request));
   const id = randomId("stg");
   const reference = await nextPublicReference(env, input.startDate.slice(0, 4));
@@ -275,7 +237,7 @@ async function getRecord(request: Request, env: Env, origin: string, id: string)
 
 async function updateTrainee(request: Request, env: Env, origin: string, id: string): Promise<Response> {
   requirePatch(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
+  const { principal } = await traineeStaffSession(request, env);
   requireRole(principal, ["ADMIN", "CHEF"]);
   const input = parse(traineeUpdateSchema, await readJson(request));
   const trainee = await getTrainee(env, id);
@@ -306,7 +268,7 @@ async function updateTrainee(request: Request, env: Env, origin: string, id: str
 
 async function createShareLink(request: Request, env: Env, origin: string, id: string): Promise<Response> {
   requirePost(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
+  const { principal } = await traineeStaffSession(request, env);
   requireRole(principal, ["ADMIN", "CHEF"]);
   const input = parse(shareLinkSchema, await readJson(request, 2_000));
   const trainee = await getTrainee(env, id);
@@ -330,7 +292,7 @@ async function createShareLink(request: Request, env: Env, origin: string, id: s
 
 async function revokeShareLinks(request: Request, env: Env, origin: string, id: string): Promise<Response> {
   requireDelete(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
+  const { principal } = await traineeStaffSession(request, env);
   requireRole(principal, ["ADMIN", "CHEF"]);
   const trainee = await getTrainee(env, id);
   const now = new Date().toISOString();
@@ -341,7 +303,7 @@ async function revokeShareLinks(request: Request, env: Env, origin: string, id: 
 
 async function createObservation(request: Request, env: Env, origin: string, traineeId: string): Promise<Response> {
   requirePost(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
+  const { principal } = await traineeStaffSession(request, env);
   const input = parse(observationCreateSchema, await readJson(request));
   const trainee = await getTrainee(env, traineeId);
   assertOpenVersion(trainee, input.expectedVersion);
@@ -358,7 +320,7 @@ async function createObservation(request: Request, env: Env, origin: string, tra
 
 async function updateObservation(request: Request, env: Env, origin: string, traineeId: string, observationId: string): Promise<Response> {
   requirePatch(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
+  const { principal } = await traineeStaffSession(request, env);
   const input = parse(observationUpdateSchema, await readJson(request));
   const trainee = await getTrainee(env, traineeId);
   assertOpenVersion(trainee, input.expectedVersion);
@@ -382,7 +344,7 @@ async function updateObservation(request: Request, env: Env, origin: string, tra
 
 async function signObservation(request: Request, env: Env, origin: string, traineeId: string, observationId: string): Promise<Response> {
   requirePost(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
+  const { principal } = await traineeStaffSession(request, env);
   const input = parse(signatureSchema, await readJson(request));
   const trainee = await getTrainee(env, traineeId);
   assertOpenVersion(trainee, input.expectedVersion);
@@ -444,7 +406,7 @@ async function signSelfSection(request: Request, env: Env, origin: string, train
 
 async function saveFinalEvaluation(request: Request, env: Env, origin: string, traineeId: string): Promise<Response> {
   requirePut(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
+  const { principal } = await traineeStaffSession(request, env);
   requireRole(principal, ["ADMIN", "CHEF"]);
   const input = parse(finalEvaluationSchema, await readJson(request));
   const trainee = await getTrainee(env, traineeId);
@@ -508,7 +470,7 @@ async function signFinalEvaluation(request: Request, env: Env, origin: string, t
 
 async function closeRecord(request: Request, env: Env, origin: string, traineeId: string): Promise<Response> {
   requirePost(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
+  const { principal } = await traineeStaffSession(request, env);
   requireRole(principal, ["ADMIN", "CHEF"]);
   const input = parse(closeSchema, await readJson(request, 2_000));
   const snapshot = await getCurrentSnapshot(env, traineeId);
@@ -609,7 +571,7 @@ async function closeRecord(request: Request, env: Env, origin: string, traineeId
 
 async function createNewVersion(request: Request, env: Env, origin: string, traineeId: string): Promise<Response> {
   requirePost(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
+  const { principal } = await traineeStaffSession(request, env);
   requireRole(principal, ["ADMIN", "CHEF"]);
   const input = parse(newVersionSchema, await readJson(request, 2_000));
   const trainee = await getTrainee(env, traineeId);
@@ -661,109 +623,6 @@ async function downloadDocument(request: Request, env: Env, origin: string, trai
     headers.set("Access-Control-Allow-Credentials", "true");
   }
   return new Response(object.body, { status: 200, headers });
-}
-
-async function listUsers(request: Request, env: Env, origin: string): Promise<Response> {
-  requireGet(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
-  requireRole(principal, ["ADMIN"]);
-  const result = await env.DB.prepare(
-    "SELECT id, first_name, last_name, display_name, position, role, permissions_json, active, created_at, updated_at FROM users ORDER BY active DESC, role, last_name, first_name",
-  ).all<Pick<UserRow, "id" | "first_name" | "last_name" | "display_name" | "position" | "role" | "permissions_json" | "active"> & { created_at: string; updated_at: string }>();
-  return json({
-    ok: true,
-    users: result.results.map(row => ({
-      id: row.id,
-      firstName: row.first_name,
-      lastName: row.last_name,
-      displayName: row.display_name,
-      position: row.position,
-      role: row.role,
-      permissions: parseJsonObject(row.permissions_json),
-      active: row.active === 1,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    })),
-  }, 200, origin);
-}
-
-async function createUser(request: Request, env: Env, origin: string): Promise<Response> {
-  requirePost(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
-  requireRole(principal, ["ADMIN"]);
-  const input = parse(userCreateSchema, await readJson(request));
-  const user = await insertUser(env, input);
-  await audit(env, { actorType: "USER", actorId: principal.id, actorName: principal.displayName, action: "USER_CREATED", targetType: "USER", targetId: user.id, details: { role: user.role } });
-  return json({ ok: true, user: publicUser(principalFromUserRow(user)) }, 201, origin);
-}
-
-async function updateUser(request: Request, env: Env, origin: string, userId: string): Promise<Response> {
-  requirePatch(request);
-  const { principal } = await userSessionFromRequest(request, env, true);
-  requireRole(principal, ["ADMIN"]);
-  const input = parse(userUpdateSchema, await readJson(request));
-  const user = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(userId).first<UserRow>();
-  if (!user) throw new ApiError("UTILISATEUR_INTROUVABLE", "Cet utilisateur n’existe pas.", 404);
-  const demotesAdmin = user.role === "ADMIN" && (input.role && input.role !== "ADMIN" || input.active === false);
-  if (demotesAdmin) {
-    const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM users WHERE role = 'ADMIN' AND active = 1").first<{ count: number }>();
-    if (Number(count?.count || 0) <= 1) throw new ApiError("DERNIER_ADMINISTRATEUR", "Le dernier administrateur actif ne peut pas être désactivé.", 409);
-  }
-  const columns: string[] = [];
-  const values: unknown[] = [];
-  const assign = (column: string, value: unknown): void => { columns.push(`${column} = ?`); values.push(value); };
-  if (input.firstName !== undefined && input.firstName !== user.first_name) assign("first_name", input.firstName);
-  if (input.lastName !== undefined && input.lastName.toLocaleUpperCase("fr") !== user.last_name) assign("last_name", input.lastName.toLocaleUpperCase("fr"));
-  if (input.position !== undefined && input.position !== user.position) assign("position", input.position);
-  if (input.role !== undefined && input.role !== user.role) assign("role", input.role);
-  if (input.permissions !== undefined && JSON.stringify(input.permissions) !== user.permissions_json) assign("permissions_json", JSON.stringify(input.permissions));
-  if (input.active !== undefined && (input.active ? 1 : 0) !== user.active) assign("active", input.active ? 1 : 0);
-  const nextDisplayName = `${input.firstName ?? user.first_name} ${(input.lastName ?? user.last_name).toLocaleUpperCase("fr")}`.trim();
-  if (nextDisplayName !== user.display_name) assign("display_name", nextDisplayName);
-  if (input.pin !== undefined) {
-    const credentials = await pinCredentials(input.pin, env.SESSION_SECRET);
-    assign("pin_lookup", credentials.pinLookup);
-    assign("pin_salt", credentials.pinSalt);
-    assign("pin_hash", credentials.pinHash);
-    assign("pin_iterations", credentials.pinIterations);
-  }
-  if (!columns.length) return json({ ok: true, user: publicUser(principalFromUserRow(user)) }, 200, origin);
-  assign("session_version", randomToken());
-  assign("updated_at", new Date().toISOString());
-  try {
-    await env.DB.prepare(`UPDATE users SET ${columns.join(", ")} WHERE id = ?`).bind(...values, userId).run();
-  } catch (error) {
-    if (/UNIQUE|pin_lookup/i.test(error instanceof Error ? error.message : String(error))) throw new ApiError("CODE_DEJA_UTILISE", "Ce code est déjà attribué à une autre personne.", 409);
-    throw error;
-  }
-  await audit(env, { actorType: "USER", actorId: principal.id, actorName: principal.displayName, action: "USER_UPDATED", targetType: "USER", targetId: userId, details: { fields: columns.map(value => value.split(" ")[0]) } });
-  const updated = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(userId).first<UserRow>();
-  if (!updated) throw new ApiError("UTILISATEUR_INTROUVABLE", "Cet utilisateur n’existe plus.", 404);
-  return json({ ok: true, user: publicUser(principalFromUserRow(updated)) }, 200, origin);
-}
-
-async function insertUser(env: Env, input: z.infer<typeof userCreateSchema> | z.infer<typeof bootstrapSchema>): Promise<UserRow> {
-  const credentials = await pinCredentials(input.pin, env.SESSION_SECRET);
-  const id = randomId("usr");
-  const now = new Date().toISOString();
-  const lastName = input.lastName.toLocaleUpperCase("fr");
-  try {
-    await env.DB.prepare(
-      `INSERT INTO users
-        (id, first_name, last_name, display_name, position, role, permissions_json, pin_lookup, pin_salt, pin_hash, pin_iterations, session_version, legacy_access_version, active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 1, ?, ?)`,
-    ).bind(
-      id, input.firstName, lastName, `${input.firstName} ${lastName}`.trim(), input.position,
-      input.role, JSON.stringify(input.permissions), credentials.pinLookup, credentials.pinSalt,
-      credentials.pinHash, credentials.pinIterations, randomToken(), now, now,
-    ).run();
-  } catch (error) {
-    if (/UNIQUE|pin_lookup/i.test(error instanceof Error ? error.message : String(error))) throw new ApiError("CODE_DEJA_UTILISE", "Ce code est déjà attribué à une autre personne.", 409);
-    throw error;
-  }
-  const row = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(id).first<UserRow>();
-  if (!row) throw new Error("USER_INSERT_FAILED");
-  return row;
 }
 
 async function storeSignature(env: Env, input: {
@@ -826,9 +685,15 @@ function decodePngDataUrl(value: string): Uint8Array {
   return bytes;
 }
 
+async function traineeStaffSession(request: Request, env: Env) {
+  const session = await authorizedUserSessionFromRequest(request, env);
+  requireAccess(session.principal, "nouveau_stagiaire");
+  return session;
+}
+
 async function recordAccess(request: Request, env: Env, traineeId: string): Promise<RecordAccess> {
   try {
-    const user = await userSessionFromRequest(request, env, true);
+    const user = await traineeStaffSession(request, env);
     return { kind: "user", principal: user.principal };
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
@@ -876,13 +741,6 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
   if (!result.success) throw validationError(result.error.issues.map(issue => ({ path: issue.path.join("."), message: issue.message })));
   return result.data;
-}
-
-function parseJsonObject(value: string): Record<string, unknown> {
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return parsed && !Array.isArray(parsed) && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
-  } catch { return {}; }
 }
 
 function requireGet(request: Request): void { if (request.method !== "GET") throw new ApiError("METHODE_REFUSEE", "Méthode non autorisée.", 405); }

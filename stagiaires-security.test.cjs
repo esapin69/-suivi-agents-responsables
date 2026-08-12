@@ -60,3 +60,22 @@ test("les éléments signés et les documents disposent de verrous en base", () 
     "signed_final_evaluation_content_immutable",
   ]) assert.match(schema, new RegExp(`CREATE TRIGGER IF NOT EXISTS ${trigger}`));
 });
+
+test("les codes et les boutons restent commandés uniquement par l’Annuaire XL", () => {
+  const appsScript = fs.readFileSync(projectFile("apps-script", "Code.gs"), "utf8");
+  const legacy = fs.readFileSync(projectFile("cloudflare", "src", "legacy.ts"), "utf8");
+  const security = fs.readFileSync(projectFile("cloudflare", "src", "security.ts"), "utf8");
+  const workerRoutes = fs.readFileSync(projectFile("cloudflare", "src", "trainees.ts"), "utf8");
+  const dashboard = fs.readFileSync(projectFile("nouveau-stagiaire.html"), "utf8");
+  const migration = fs.readFileSync(projectFile("cloudflare", "migrations", "0002_xl_access_authority.sql"), "utf8");
+
+  assert.match(appsScript, /ACCESS_SHEET:\s*'Annuaire'/);
+  assert.match(appsScript, /normalize_\(row\[i\]\) === 'OK'/);
+  assert.match(legacy, /"authenticateAccess"/);
+  assert.match(legacy, /"authorizeAccess"/);
+  assert.match(workerRoutes, /requireAccess\(session\.principal, "nouveau_stagiaire"\)/);
+  assert.doesNotMatch(security, /findUserByPin|pinCredentials|roleAccess/);
+  assert.doesNotMatch(workerRoutes, /\/v2\/admin\/users|setup\/bootstrap/);
+  assert.doesNotMatch(dashboard, /adminPanel|createUserForm|Code personnel à 6 chiffres/);
+  assert.doesNotMatch(migration, /pin_lookup|pin_hash|pin_salt|pin_iterations/);
+});

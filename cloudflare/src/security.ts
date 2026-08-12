@@ -1,10 +1,9 @@
-import type { Env, Principal, Role, TraineePrincipal, UserRow } from "./types";
+import type { Env, Principal, Role, TraineePrincipal } from "./types";
 import { ApiError } from "./http";
 
 const USER_COOKIE = "__Host-ghe_session";
 const TRAINEE_COOKIE = "__Host-ghe_trainee";
 const USER_SESSION_TTL = 8 * 60 * 60;
-const PBKDF2_ITERATIONS = 210_000;
 
 type SessionPayloadV2 = {
   version: 2;
@@ -102,16 +101,11 @@ export async function readUserSessionToken(
   return null;
 }
 
-export async function userSessionFromRequest(request: Request, env: Env, requireD1 = true): Promise<UserSession> {
+export async function userSessionFromRequest(request: Request, env: Env): Promise<UserSession> {
   const token = readCookie(request.headers.get("Cookie") || "", USER_COOKIE);
   const session = token ? await readUserSessionToken(token, env.SESSION_SECRET) : null;
   if (!session) throw new ApiError("AUTH_REQUISE", "Votre session a expiré. Reconnectez-vous.", 401);
-  if (!requireD1) return session;
-  const row = await env.DB.prepare("SELECT * FROM users WHERE id = ? AND active = 1").bind(session.principal.id).first<UserRow>();
-  if (!row || row.session_version !== session.principal.sessionVersion) {
-    throw new ApiError("AUTH_REQUISE", "Votre session a expiré. Reconnectez-vous.", 401);
-  }
-  return { principal: principalFromUserRow(row), legacyAccessVersion: row.legacy_access_version };
+  return session;
 }
 
 export async function createTraineeSessionToken(
@@ -149,44 +143,6 @@ export async function traineeSessionFromRequest(request: Request, env: Env): Pro
   return { kind: "trainee", linkId: row.id, traineeId: row.trainee_id, expiresAt: Date.parse(row.expires_at) / 1000 };
 }
 
-export async function findUserByPin(env: Env, pin: string): Promise<UserRow | null> {
-  const lookup = await hmacText(pin, env.SESSION_SECRET);
-  const row = await env.DB.prepare("SELECT * FROM users WHERE pin_lookup = ? AND active = 1").bind(lookup).first<UserRow>();
-  if (!row || !(await verifyPin(pin, row.pin_salt, row.pin_hash, row.pin_iterations))) return null;
-  return row;
-}
-
-export async function pinCredentials(pin: string, secret: string): Promise<{
-  pinLookup: string;
-  pinSalt: string;
-  pinHash: string;
-  pinIterations: number;
-}> {
-  if (!/^\d{6}$/.test(pin)) throw new ApiError("CODE_INVALIDE", "Le code doit contenir exactement six chiffres.", 422);
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const hash = await derivePin(pin, salt, PBKDF2_ITERATIONS);
-  return {
-    pinLookup: await hmacText(pin, secret),
-    pinSalt: base64UrlEncode(salt),
-    pinHash: base64UrlEncode(hash),
-    pinIterations: PBKDF2_ITERATIONS,
-  };
-}
-
-export function principalFromUserRow(row: UserRow): Principal {
-  return {
-    id: row.id,
-    firstName: row.first_name,
-    lastName: row.last_name,
-    displayName: row.display_name,
-    position: row.position,
-    role: row.role,
-    source: "d1",
-    sessionVersion: row.session_version,
-    access: roleAccess(row.role, normalizeAccess(safeJson(row.permissions_json))),
-  };
-}
-
 export function publicUser(principal: Principal): Record<string, unknown> {
   return {
     id: principal.id,
@@ -204,14 +160,13 @@ export function requireRole(principal: Principal, roles: Role[]): void {
   if (!roles.includes(principal.role)) throw new ApiError("ACCES_REFUSE", "Vous n’avez pas l’autorisation nécessaire.", 403);
 }
 
+export function requireAccess(principal: Principal, key: string): void {
+  if (principal.access[key] !== true) throw new ApiError("ACCES_REFUSE", "Vous n’avez pas l’autorisation nécessaire.", 403);
+}
+
 export function inferRole(isAdmin: boolean, position: string): Role {
   if (isAdmin) return "ADMIN";
   return /chef|responsable|encadrant/i.test(position) ? "CHEF" : "AGENT";
-}
-
-export function roleAccess(role: Role, stored: Record<string, boolean> = {}): Record<string, boolean> {
-  const common = { ...stored, suivi_des_stagiaires: true, nouveau_stagiaire: true };
-  return role === "ADMIN" || role === "CHEF" ? { ...common, cloture_stagiaire: true, administration: role === "ADMIN" } : common;
 }
 
 export function randomToken(bytes = 32): string {
@@ -252,21 +207,6 @@ export function clearTraineeCookie(): string {
   return `${TRAINEE_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`;
 }
 
-async function verifyPin(pin: string, saltValue: string, expected: string, iterations: number): Promise<boolean> {
-  try {
-    const actual = await derivePin(pin, base64UrlDecode(saltValue), iterations);
-    return timingSafeEqual(actual, base64UrlDecode(expected));
-  } catch {
-    return false;
-  }
-}
-
-async function derivePin(pin: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: salt.buffer as ArrayBuffer, iterations }, key, 256);
-  return new Uint8Array(bits);
-}
-
 async function signPayload(payload: object, secret: string): Promise<string> {
   const encoded = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const signature = await hmacBytes(encoded, secret);
@@ -285,10 +225,6 @@ async function verifyPayload(token: string, secret: string): Promise<unknown | n
   }
 }
 
-async function hmacText(value: string, secret: string): Promise<string> {
-  return base64UrlEncode(await hmacBytes(value, secret));
-}
-
 async function hmacBytes(value: string, secret: string): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value)));
@@ -299,7 +235,7 @@ function validatePrincipal(value: unknown): Principal | null {
   const p = value as Partial<Principal>;
   if (!p.id || !p.firstName || !p.lastName || !p.displayName || typeof p.position !== "string" || !p.sessionVersion) return null;
   if (!p.role || !["ADMIN", "CHEF", "AGENT"].includes(p.role)) return null;
-  if (!p.source || !["d1", "legacy"].includes(p.source)) return null;
+  if (p.source !== "legacy") return null;
   return { ...p, access: normalizeAccess(p.access) } as Principal;
 }
 
@@ -316,10 +252,6 @@ function normalizeAccess(value: unknown): Record<string, boolean> {
     if (/^[a-z0-9_]{1,80}$/.test(key) && typeof allowed === "boolean") result[key] = allowed;
   }
   return result;
-}
-
-function safeJson(value: string): unknown {
-  try { return JSON.parse(value); } catch { return {}; }
 }
 
 function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {

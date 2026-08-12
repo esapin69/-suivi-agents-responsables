@@ -1,17 +1,13 @@
-import type { AccessMap, Env, Principal, UserRow } from "./types";
+import type { AccessMap, Env, Principal } from "./types";
 import { ApiError, readJson } from "./http";
 import {
   createUserSessionToken,
-  findUserByPin,
   inferRole,
-  pinCredentials,
-  principalFromUserRow,
   publicUser,
   randomId,
-  randomToken,
-  roleAccess,
   userCookie,
   userSessionFromRequest,
+  type UserSession,
 } from "./security";
 
 export const LEGACY_GET_ACTIONS = new Set([
@@ -43,15 +39,6 @@ type LegacyAuthUser = {
 };
 
 export async function authenticateWithPin(env: Env, pin: string): Promise<{ principal: Principal; legacyAccessVersion: string; cookie: string }> {
-  let d1User: UserRow | null = null;
-  try { d1User = await findUserByPin(env, pin); }
-  catch (error) { console.warn(JSON.stringify({ event: "d1_login_unavailable", message: error instanceof Error ? error.message : String(error) })); }
-  if (d1User) {
-    const principal = principalFromUserRow(d1User);
-    const token = await createUserSessionToken(principal, d1User.legacy_access_version, env.SESSION_SECRET);
-    return { principal, legacyAccessVersion: d1User.legacy_access_version, cookie: userCookie(token) };
-  }
-
   if (!env.APPS_SCRIPT_URL || !env.APPS_SCRIPT_KEY) {
     throw new ApiError("CODE_INVALIDE", "Code incorrect ou accès non autorisé.", 401);
   }
@@ -59,16 +46,31 @@ export async function authenticateWithPin(env: Env, pin: string): Promise<{ prin
   const user = validateLegacyAuthUser(result.user);
   const accessVersion = String(result.session_version || "");
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(accessVersion)) throw new ApiError("AUTH_INVALIDE", "Identité invalide.", 401);
-  const principal = await upsertLegacyUser(env, user, pin, accessVersion);
+  const principal = principalFromLegacyUser(user, accessVersion);
+  await syncIdentityMirror(env, principal);
   const token = await createUserSessionToken(principal, accessVersion, env.SESSION_SECRET);
   return { principal, legacyAccessVersion: accessVersion, cookie: userCookie(token) };
+}
+
+export async function authorizedUserSessionFromRequest(request: Request, env: Env): Promise<UserSession> {
+  const session = await userSessionFromRequest(request, env);
+  if (!session.legacyAccessVersion) throw new ApiError("AUTH_REQUISE", "Votre session a expiré. Reconnectez-vous.", 401);
+  const result = await callAppsScript(env, "GET", "authorizeAccess", {}, {
+    auth_user_id: session.principal.id,
+    auth_session_version: session.legacyAccessVersion,
+  });
+  const user = validateLegacyAuthUser(result.user);
+  if (user.id !== session.principal.id) throw new ApiError("AUTH_INVALIDE", "Identité invalide.", 401);
+  const principal = principalFromLegacyUser(user, session.legacyAccessVersion);
+  await syncIdentityMirror(env, principal);
+  return { principal, legacyAccessVersion: session.legacyAccessVersion };
 }
 
 export async function proxyLegacyAction(request: Request, env: Env, action: string): Promise<Record<string, unknown>> {
   if (!env.APPS_SCRIPT_URL || !env.APPS_SCRIPT_KEY) {
     throw new ApiError("ANCIEN_SERVICE_INDISPONIBLE", "Cette ancienne rubrique est en cours de migration.", 503);
   }
-  const session = await userSessionFromRequest(request, env, false);
+  const session = await userSessionFromRequest(request, env);
   if (!session.legacyAccessVersion) {
     throw new ApiError("ANCIEN_SERVICE_RECONNEXION", "Reconnectez-vous avant d’utiliser cette ancienne rubrique.", 401);
   }
@@ -132,34 +134,8 @@ export async function callAppsScript(
   return data;
 }
 
-async function upsertLegacyUser(env: Env, user: LegacyAuthUser, pin: string, accessVersion: string): Promise<Principal> {
-  const credentials = await pinCredentials(pin, env.SESSION_SECRET);
+function principalFromLegacyUser(user: LegacyAuthUser, accessVersion: string): Principal {
   const role = inferRole(user.is_admin, user.poste);
-  const now = new Date().toISOString();
-  const permissions = roleAccess(role, user.access);
-  try {
-    const existing = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first<UserRow>();
-    const sessionVersion = existing?.pin_lookup === credentials.pinLookup ? existing.session_version : randomToken();
-    await env.DB.prepare(
-      `INSERT INTO users
-        (id, first_name, last_name, display_name, position, role, permissions_json, pin_lookup, pin_salt, pin_hash, pin_iterations, session_version, legacy_access_version, active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-        first_name = excluded.first_name, last_name = excluded.last_name, display_name = excluded.display_name,
-        position = excluded.position, role = excluded.role, permissions_json = excluded.permissions_json,
-        pin_lookup = excluded.pin_lookup, pin_salt = excluded.pin_salt, pin_hash = excluded.pin_hash,
-        pin_iterations = excluded.pin_iterations, session_version = excluded.session_version,
-        legacy_access_version = excluded.legacy_access_version, active = 1, updated_at = excluded.updated_at`,
-    ).bind(
-      user.id, user.prenom, user.nom, user.display_name, user.poste, role, JSON.stringify(permissions),
-      credentials.pinLookup, credentials.pinSalt, credentials.pinHash, credentials.pinIterations,
-      sessionVersion, accessVersion, now, now,
-    ).run();
-    const row = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first<UserRow>();
-    if (row) return principalFromUserRow(row);
-  } catch (error) {
-    console.warn(JSON.stringify({ event: "legacy_user_sync_failed", message: error instanceof Error ? error.message : String(error) }));
-  }
   return {
     id: user.id,
     firstName: user.prenom,
@@ -169,8 +145,28 @@ async function upsertLegacyUser(env: Env, user: LegacyAuthUser, pin: string, acc
     role,
     source: "legacy",
     sessionVersion: accessVersion,
-    access: permissions,
+    access: { ...user.access },
   };
+}
+
+async function syncIdentityMirror(env: Env, principal: Principal): Promise<void> {
+  const now = new Date().toISOString();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO users
+        (id, first_name, last_name, display_name, position, role, permissions_json, last_verified_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+        first_name = excluded.first_name, last_name = excluded.last_name, display_name = excluded.display_name,
+        position = excluded.position, role = excluded.role, permissions_json = excluded.permissions_json,
+        last_verified_at = excluded.last_verified_at, updated_at = excluded.updated_at`,
+    ).bind(
+      principal.id, principal.firstName, principal.lastName, principal.displayName, principal.position,
+      principal.role, JSON.stringify(principal.access), now, now, now,
+    ).run();
+  } catch (error) {
+    console.warn(JSON.stringify({ event: "identity_mirror_sync_failed", message: error instanceof Error ? error.message : String(error) }));
+  }
 }
 
 function validateLegacyAuthUser(value: unknown): LegacyAuthUser {

@@ -1,10 +1,9 @@
 import type { Env } from "./types";
 import { ALLOWED_ORIGIN, ApiError, assertAllowedOrigin, errorResponse, json, readJson, responseHeaders } from "./http";
-import { authenticateWithPin, proxyLegacyAction, publicAuthenticatedUser } from "./legacy";
-import { clearTraineeCookie, clearUserCookie, limiterKey, publicUser, requireSessionSecret, userSessionFromRequest } from "./security";
+import { authenticateWithPin, authorizedUserSessionFromRequest, proxyLegacyAction, publicAuthenticatedUser } from "./legacy";
+import { clearTraineeCookie, clearUserCookie, limiterKey, publicUser, requireSessionSecret } from "./security";
 import { handleV2 } from "./trainees";
 import { loginSchema } from "./schemas";
-import { ensureSchema } from "./schema";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -36,14 +35,7 @@ export default {
       }
       if (action === "session") {
         if (request.method !== "GET") throw new ApiError("METHODE_REFUSEE", "Méthode non autorisée.", 405);
-        let current;
-        try { current = await userSessionFromRequest(request, env, true); }
-        catch (error) {
-          if (!(error instanceof ApiError) || error.status !== 401) throw error;
-          const legacy = await userSessionFromRequest(request, env, false);
-          if (legacy.principal.source !== "legacy") throw error;
-          current = legacy;
-        }
+        const current = await authorizedUserSessionFromRequest(request, env);
         return json({ ok: true, user: publicAuthenticatedUser(current.principal) }, 200, origin);
       }
       const result = await proxyLegacyAction(request, env, action);
@@ -65,7 +57,6 @@ async function legacyLogin(request: Request, env: Env, origin: string): Promise<
     env.LOGIN_GLOBAL_LIMITER.limit({ key: "all-logins" }),
   ]);
   if (!ipLimit.success || !globalLimit.success) throw new ApiError("TROP_DE_TENTATIVES", "Trop de tentatives. Attendez une minute avant de réessayer.", 429);
-  await ensureSchema(env);
   const body = await readJson(request, 2_000);
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) throw new ApiError("CODE_INVALIDE", "Code incorrect ou accès non autorisé.", 401);

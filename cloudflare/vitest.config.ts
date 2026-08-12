@@ -11,7 +11,8 @@ export default defineConfig({
         d1Databases: ["FRESH_DB"],
         bindings: {
           SESSION_SECRET: "0123456789abcdef0123456789abcdef-test",
-          BOOTSTRAP_TOKEN: "bootstrap-0123456789abcdef0123456789abcdef",
+          APPS_SCRIPT_URL: "https://apps-script.test/exec",
+          APPS_SCRIPT_KEY: "test-apps-script-key",
           TEST_MIGRATIONS: await readD1Migrations(path.join(fileURLToPath(new URL(".", import.meta.url)), "migrations")),
         },
       },

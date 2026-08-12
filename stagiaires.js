@@ -45,7 +45,6 @@
   function clearNotice(element) { if (element) element.hidden = true; }
   function pending(button, active, label = "Enregistrement…") { if (!button) return; if (active) { button.dataset.label = button.textContent; button.textContent = label; button.disabled = true; } else { button.textContent = button.dataset.label || button.textContent; button.disabled = false; } }
   function isManager() { return state.user && ["ADMIN", "CHEF"].includes(state.user.role); }
-  function isAdmin() { return state.user && state.user.role === "ADMIN"; }
   function isTutor() { return state.user && state.record?.trainee?.tutorUserId === state.user.id; }
 
   async function bootDashboard() {
@@ -53,10 +52,6 @@
       state.user = await window.GHEAuth.ready;
       bindDashboard();
       await loadDirectory();
-      if (isAdmin()) {
-        byId("adminPanel").hidden = false;
-        await loadUsers();
-      }
       await loadTrainees();
     } catch (error) { showNotice(byId("dashboardNotice"), error.message, "error"); }
   }
@@ -82,9 +77,6 @@
       state.status = button.dataset.status;
       loadTrainees();
     });
-    byId("toggleUserForm")?.addEventListener("click", () => { byId("createUserForm").hidden = !byId("createUserForm").hidden; });
-    byId("createUserForm")?.addEventListener("submit", createUser);
-    byId("userList")?.addEventListener("click", updateUserFromRow);
   }
 
   async function loadTrainees() {
@@ -125,54 +117,6 @@
       if (values.tutorUserId && !values.tutorName) values.tutorName = state.directory.find(user => user.id === values.tutorUserId)?.displayName || "";
       const data = await api("/v2/trainees", { method: "POST", body: values });
       location.href = `/fiche-stagiaire.html?id=${encodeURIComponent(data.record.trainee.id)}`;
-    } catch (error) { showNotice(byId("dashboardNotice"), error.message, "error"); pending(button, false); }
-  }
-
-  async function loadUsers() {
-    const list = byId("userList");
-    list.innerHTML = '<div class="loading-card">Chargement des accès…</div>';
-    try {
-      const data = await api("/v2/admin/users");
-      list.innerHTML = data.users.map(user => `
-        <div class="user-row" data-user-id="${esc(user.id)}">
-          <div><strong>${esc(user.displayName)}</strong><small>${esc(user.position || "Fonction non renseignée")}</small></div>
-          <label>Rôle<select data-field="role"><option value="AGENT"${user.role === "AGENT" ? " selected" : ""}>Agent</option><option value="CHEF"${user.role === "CHEF" ? " selected" : ""}>Chef</option><option value="ADMIN"${user.role === "ADMIN" ? " selected" : ""}>Admin</option></select></label>
-          <label>Actif<select data-field="active"><option value="true"${user.active ? " selected" : ""}>Oui</option><option value="false"${!user.active ? " selected" : ""}>Non</option></select></label>
-          <label>Nouveau code<input data-field="pin" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="Laisser inchangé"></label>
-          <button class="mini-button" type="button" data-save-user>Enregistrer</button>
-        </div>`).join("");
-    } catch (error) { list.innerHTML = `<div class="empty-card">${esc(error.message)}</div>`; }
-  }
-
-  async function createUser(event) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const button = form.querySelector("button[type=submit]");
-    pending(button, true);
-    try {
-      await api("/v2/admin/users", { method: "POST", body: formData(form) });
-      form.reset(); form.hidden = true;
-      showNotice(byId("dashboardNotice"), "L’accès a été créé. Le code n’est pas affiché et doit être transmis directement à la personne.", "success");
-      await loadUsers();
-    } catch (error) { showNotice(byId("dashboardNotice"), error.message, "error"); }
-    finally { pending(button, false); }
-  }
-
-  async function updateUserFromRow(event) {
-    const button = event.target.closest("[data-save-user]");
-    if (!button) return;
-    const row = button.closest("[data-user-id]");
-    const pin = row.querySelector('[data-field="pin"]').value.trim();
-    const body = {
-      role: row.querySelector('[data-field="role"]').value,
-      active: row.querySelector('[data-field="active"]').value === "true",
-      ...(pin ? { pin } : {}),
-    };
-    pending(button, true);
-    try {
-      await api(`/v2/admin/users/${encodeURIComponent(row.dataset.userId)}`, { method: "PATCH", body });
-      showNotice(byId("dashboardNotice"), "L’accès a été mis à jour. Les anciennes sessions de cette personne sont maintenant invalidées.", "success");
-      await loadUsers();
     } catch (error) { showNotice(byId("dashboardNotice"), error.message, "error"); pending(button, false); }
   }
 
