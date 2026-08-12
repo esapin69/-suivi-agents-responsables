@@ -11,7 +11,12 @@ const ACTION_TIMEOUTS_MS = Object.freeze({
   createAgent: 30000,
   updateAgent: 20000,
   saveFirstDay: 20000,
+  saveFollowup: 20000,
   saveEvaluationDraft: 20000,
+  createAgentSignatureRequest: 20000,
+  cancelAgentSignatureRequest: 15000,
+  publicGetAgentSignature: 12000,
+  publicSubmitAgentSignature: 25000,
   finalizeEvaluation: 60000,
   submitSituation: 20000
 });
@@ -19,6 +24,8 @@ const AGENTS_CACHE_REFRESH_MS = 60 * 1000;
 const AGENTS_CACHE_TTL_SECONDS = 5 * 60;
 const AGENTS_CACHE_FETCH_TIMEOUT_MS = 12000;
 const MAX_BODY_BYTES = 250000;
+const MAX_PUBLIC_SIGNATURE_BODY_BYTES = 400000;
+const MAX_PUBLIC_LOOKUP_BODY_BYTES = 5000;
 const MAX_LOGIN_BODY_BYTES = 2000;
 
 const GET_ACTIONS = new Set([
@@ -26,17 +33,28 @@ const GET_ACTIONS = new Set([
   "listDirectory",
   "getAgent",
   "getFirstDay",
+  "getFollowup",
+  "getFollowupOverview",
   "listEvaluations",
-  "getEvaluation"
+  "getEvaluation",
+  "getAgentSignatureStatus"
 ]);
 
 const POST_ACTIONS = new Set([
   "createAgent",
   "updateAgent",
   "saveFirstDay",
+  "saveFollowup",
   "saveEvaluationDraft",
+  "createAgentSignatureRequest",
+  "cancelAgentSignatureRequest",
   "finalizeEvaluation",
   "submitSituation"
+]);
+
+const PUBLIC_POST_ACTIONS = new Set([
+  "publicGetAgentSignature",
+  "publicSubmitAgentSignature"
 ]);
 
 class UpstreamError extends Error {
@@ -94,6 +112,25 @@ export default {
         });
       }
 
+      if (PUBLIC_POST_ACTIONS.has(action)) {
+        if (request.method !== "POST") {
+          return apiError("METHODE_REFUSEE", "Méthode non autorisée.", 405, origin);
+        }
+        const maxBytes = action === "publicSubmitAgentSignature"
+          ? MAX_PUBLIC_SIGNATURE_BODY_BYTES
+          : MAX_PUBLIC_LOOKUP_BODY_BYTES;
+        const payload = await readJsonBody(request, maxBytes);
+        const result = await callAppsScript(
+          env,
+          "POST",
+          action,
+          payload,
+          {},
+          timeoutForAction(action)
+        );
+        return apiJson(result, 200, origin);
+      }
+
       const session = await sessionFromRequest(request, env.SESSION_SECRET);
       if (!session) {
         return apiError(
@@ -136,6 +173,8 @@ export default {
 
         const id = incoming.searchParams.get("id");
         if (id) params.id = id;
+        const step = incoming.searchParams.get("step");
+        if (step) params.step = step;
 
         const result = await callAppsScript(env, "GET", action, {}, params);
         return apiJson(result, 200, origin);
@@ -696,8 +735,9 @@ function base64UrlDecode(value) {
 function statusForCode(code) {
   if (/ORIGINE|ACTION_REFUSEE|ACCES_REFUSE/.test(code)) return 403;
   if (/AUTH|CODE_INVALIDE/.test(code)) return 401;
+  if (/LIEN_SIGNATURE_INVALIDE/.test(code)) return 410;
   if (/INTROUVABLE|MANQUANT$/.test(code)) return 404;
-  if (/IMMUABLE|EXISTANT|INCOHERENT|DUPLIQUE/.test(code)) return 409;
+  if (/IMMUABLE|EXISTANT|INCOHERENT|DUPLIQUE|VERROUILLEE|EN_ATTENTE|MODIFIE_APRES_ENVOI|DEJA_RECUE/.test(code)) return 409;
   if (/TROP_VOLUMINEUX/.test(code)) return 413;
   if (/TIMEOUT_GOOGLE/.test(code)) return 504;
 
@@ -711,6 +751,24 @@ function statusForCode(code) {
 }
 
 function publicMessage(code, fallback) {
+  if (/LIEN_SIGNATURE_INVALIDE/.test(code)) {
+    return "Ce lien de signature est invalide, expiré ou n’est plus actif.";
+  }
+  if (/SIGNATURE_AGENT_REQUISE/.test(code)) {
+    return "La signature de l’agent est requise.";
+  }
+  if (/CONTENU_EVALUATION_MODIFIE_APRES_ENVOI/.test(code)) {
+    return "Cette évaluation a été modifiée depuis l’envoi. Demandez un nouveau lien de signature.";
+  }
+  if (/EVALUATION_VERROUILLEE_SIGNATURE_AGENT/.test(code)) {
+    return "Cette évaluation est verrouillée pendant la signature de l’agent. Annulez la demande pour la modifier.";
+  }
+  if (/SIGNATURE_AGENT_EN_ATTENTE/.test(code)) {
+    return "La signature de l’agent est encore en attente.";
+  }
+  if (/SIGNATURE_AGENT_DEJA_RECUE/.test(code)) {
+    return "La signature de l’agent a déjà été reçue.";
+  }
   if (/TIMEOUT_GOOGLE/.test(code)) {
     return fallback || "Le service de données met trop de temps à répondre. Réessayez.";
   }
