@@ -9,7 +9,7 @@
   <script>document.documentElement.classList.add("auth-pending")</script>
   <title>Évaluations</title>
   <link rel="stylesheet" href="style.css?v=20260812-terrain-1">
-  <link rel="stylesheet" href="evaluations-terrain.css?v=20260812-1">
+  <link rel="stylesheet" href="evaluations-terrain.css?v=20260812-2">
 </head>
 <body class="evaluation-page">
 <header class="top"><div class="brand"><b>GHE</b> · ÉVALUATIONS</div><a class="home" data-agent-link="agent.html" href="suivre-agent.html">Fiche agent</a></header>
@@ -25,6 +25,22 @@
 
   <section class="panel evaluation-form-panel" id="formPanel" hidden>
     <div class="evaluation-title-row form-heading"><div><div class="kicker" id="formKicker">Nouvelle observation</div><h2 id="formTitle">Suivi terrain</h2><p class="official-note">Le brouillon ne sera créé que si vous enregistrez au moins un élément réellement observé.</p></div><button class="btn light" id="closeBtn" type="button">Fermer</button></div>
+
+    <div id="validatedView" class="validated-view" hidden>
+      <div class="validated-check" aria-hidden="true">✓</div>
+      <div class="validated-content">
+        <div class="kicker">Version protégée</div>
+        <h3>Document officiel créé</h3>
+        <p>Cette version est validée et n’est plus modifiable. Vous pouvez ouvrir le PDF, revenir à la fiche de l’agent ou préparer une nouvelle version.</p>
+        <div class="validated-meta" id="validatedMeta"></div>
+        <div class="validated-actions">
+          <a class="btn cyan" id="validatedPdfBtn" href="#" target="_blank" rel="noopener">Ouvrir le PDF officiel</a>
+          <button class="btn light" id="validatedNewVersionBtn" type="button">Créer une nouvelle version</button>
+          <a class="btn light" data-agent-link="agent.html" href="agent.html">Retour à la fiche agent</a>
+        </div>
+      </div>
+    </div>
+
     <form id="evaluationForm" class="form">
       <input type="hidden" name="id_evaluation">
       <section class="identity-sheet" aria-labelledby="identityTitle">
@@ -59,6 +75,6 @@
     </form>
   </section>
 </main>
-<script src="app.js?v=20260811-auth-6"></script><script src="../data-cache.js?v=20260812-global-1"></script><script src="agent-context.js?v=20260812-1"></script><script src="evaluations.js?v=20260812-terrain-1"></script>
+<script src="app.js?v=20260811-auth-6"></script><script src="../data-cache.js?v=20260812-global-1"></script><script src="agent-context.js?v=20260812-1"></script><script src="evaluations.js?v=20260812-terrain-1"></script><script src="evaluation-completion.js?v=20260812-1"></script>
 </body>
 </html>
