@@ -6,6 +6,15 @@ const ALLOWED_ORIGINS = new Set([
 const SESSION_COOKIE = "__Host-ghe_session";
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const APPS_SCRIPT_TIMEOUT_MS = 8000;
+const ACTION_TIMEOUTS_MS = Object.freeze({
+  authenticateAccess: 15000,
+  createAgent: 30000,
+  updateAgent: 20000,
+  saveFirstDay: 20000,
+  saveEvaluationDraft: 20000,
+  finalizeEvaluation: 60000,
+  submitSituation: 20000
+});
 const AGENTS_CACHE_REFRESH_MS = 60 * 1000;
 const AGENTS_CACHE_TTL_SECONDS = 5 * 60;
 const AGENTS_CACHE_FETCH_TIMEOUT_MS = 12000;
@@ -146,7 +155,14 @@ export default {
           payload.evaluateur = session.display_name;
         }
 
-        const result = await callAppsScript(env, "POST", action, payload, {});
+        const result = await callAppsScript(
+          env,
+          "POST",
+          action,
+          payload,
+          {},
+          timeoutForAction(action)
+        );
 
         if (action === "createAgent" || action === "updateAgent") {
           ctx.waitUntil(invalidateAgentsCache().catch(error => {
@@ -221,7 +237,8 @@ async function login(request, env, origin, ctx) {
     "POST",
     "authenticateAccess",
     { code },
-    {}
+    {},
+    timeoutForAction("authenticateAccess")
   );
 
   const user = validateAuthUser(result.user);
@@ -261,6 +278,10 @@ async function login(request, env, origin, ctx) {
     origin,
     { "Set-Cookie": sessionCookie(token) }
   );
+}
+
+function timeoutForAction(action) {
+  return Number(ACTION_TIMEOUTS_MS[action] || APPS_SCRIPT_TIMEOUT_MS);
 }
 
 async function listAgentsCached(env, session, origin, ctx) {
@@ -406,7 +427,9 @@ async function callAppsScript(env, method, action, payload, params, timeoutMs = 
     if (error && error.name === "AbortError") {
       throw new UpstreamError(
         "TIMEOUT_GOOGLE",
-        "Google Apps Script met trop de temps à répondre."
+        action === "finalizeEvaluation"
+          ? "La génération du PDF a dépassé le délai prévu. Vérifiez le dossier officiel avant de relancer."
+          : "Google Apps Script met trop de temps à répondre."
       );
     }
     throw error;
@@ -689,7 +712,7 @@ function statusForCode(code) {
 
 function publicMessage(code, fallback) {
   if (/TIMEOUT_GOOGLE/.test(code)) {
-    return "Le service de données met trop de temps à répondre. Réessayez.";
+    return fallback || "Le service de données met trop de temps à répondre. Réessayez.";
   }
 
   if (
