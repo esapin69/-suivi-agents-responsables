@@ -1,10 +1,8 @@
 (()=>{
-  let panel=null,currentLink='',pollTimer=null,lastEvaluationId='';
+  let panel=null,currentLink='',pollTimer=null,lastEvaluationId='',activeStatus='AUCUNE';
 
   function currentId(){return String(document.getElementById('evaluationForm')?.elements?.id_evaluation?.value||'').trim();}
-  function currentAgentName(){return String(document.querySelector('[data-agent-name]')?.textContent||'').trim();}
   function formatDateTime(value){if(!value)return'';const d=new Date(value);return Number.isNaN(d.getTime())?String(value):new Intl.DateTimeFormat('fr-FR',{dateStyle:'short',timeStyle:'short'}).format(d);}
-  function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
 
   function installStyle(){
     if(document.getElementById('externalSignatureStyle'))return;
@@ -50,7 +48,7 @@
   function startPolling(){stopPolling();pollTimer=setInterval(()=>{if(!document.hidden)refreshStatus(false);},15000);}
 
   function applyStatus(request){
-    ensurePanel();const status=request?.statut||'AUCUNE',b=buttons();applyLock(status);
+    ensurePanel();const status=request?.statut||'AUCUNE',b=buttons();activeStatus=status;applyLock(status);
     b.sms.hidden=!currentLink;b.copy.hidden=!currentLink;b.refresh.hidden=!(status==='EN_ATTENTE'||status==='SIGNE');b.cancel.hidden=!(status==='EN_ATTENTE'||status==='SIGNE');
     if(status==='AUCUNE'||status==='ANNULE'||status==='EXPIRE'){
       b.request.hidden=false;b.request.textContent='Demander la signature par SMS';setState(status==='EXPIRE'?'Le précédent lien a expiré. Vous pouvez en créer un nouveau.':'Aucune demande de signature active.');stopPolling();return;
@@ -73,22 +71,32 @@
     catch(error){setState(error.message||'Impossible de vérifier la signature.','error');}
   }
 
+  async function createLinkForEvaluation(evaluationId){
+    const created=await apiPost('createAgentSignatureRequest',{id_evaluation:evaluationId});
+    currentLink=created.request?.signature_url||'';
+    if(!currentLink)throw new Error('Le lien de signature n’a pas été créé.');
+    const agentData=await apiGet('getAgent',{id:AgentContext.id}).catch(()=>({agent:null}));
+    configureSms(currentLink,agentData.agent||null);
+    applyStatus(created.request||{statut:'EN_ATTENTE'});
+    setState('Lien sécurisé prêt. Ouvrez le SMS puis envoyez-le à l’agent.','wait');
+  }
+
   async function requestSignature(){
-    ensurePanel();
-    if(typeof validateForm==='function'&&!validateForm(false))return;
-    const button=buttons().request;button.disabled=true;setState('Enregistrement de l’évaluation avant envoi…');
+    ensurePanel();const button=buttons().request;button.disabled=true;
     try{
+      if(activeStatus==='EN_ATTENTE'){
+        const id=currentId();if(!id)throw new Error('Évaluation introuvable.');
+        setState('Création d’un nouveau lien sécurisé…');
+        await createLinkForEvaluation(id);
+        return;
+      }
+      if(typeof validateForm==='function'&&!validateForm(false))return;
+      setState('Enregistrement de l’évaluation avant envoi…');
       const saved=await apiPost('saveEvaluationDraft',payload());
       const ev=saved.evaluation;if(!ev?.id_evaluation)throw new Error('Le brouillon n’a pas reçu d’identifiant.');
       if(typeof upsertEvaluation==='function')upsertEvaluation(ev);
       if(typeof fillForm==='function')fillForm(ev);
-      const created=await apiPost('createAgentSignatureRequest',{id_evaluation:ev.id_evaluation});
-      currentLink=created.request?.signature_url||'';
-      if(!currentLink)throw new Error('Le lien de signature n’a pas été créé.');
-      const agentData=await apiGet('getAgent',{id:AgentContext.id}).catch(()=>({agent:null}));
-      configureSms(currentLink,agentData.agent||null);
-      applyStatus(created.request||{statut:'EN_ATTENTE'});
-      setState('Lien sécurisé prêt. Ouvrez le SMS puis envoyez-le à l’agent.','wait');
+      await createLinkForEvaluation(ev.id_evaluation);
     }catch(error){setState(error.message||'Impossible de créer la demande de signature.','error');}
     finally{button.disabled=false;}
   }
@@ -113,9 +121,9 @@
 
   function watchEvaluation(){
     const title=document.getElementById('formTitle');if(!title)return;
-    const sync=()=>{const id=currentId();if(id===lastEvaluationId)return;lastEvaluationId=id;currentLink='';setTimeout(()=>refreshStatus(false),0);};
+    const sync=()=>{const id=currentId();if(id===lastEvaluationId)return;lastEvaluationId=id;currentLink='';activeStatus='AUCUNE';setTimeout(()=>refreshStatus(false),0);};
     new MutationObserver(sync).observe(title,{childList:true,subtree:true,characterData:true});
-    document.getElementById('newBtn')?.addEventListener('click',()=>{lastEvaluationId='';currentLink='';setTimeout(()=>applyStatus({statut:'AUCUNE'}),0);});
+    document.getElementById('newBtn')?.addEventListener('click',()=>{lastEvaluationId='';currentLink='';activeStatus='AUCUNE';setTimeout(()=>applyStatus({statut:'AUCUNE'}),0);});
     sync();
   }
 
