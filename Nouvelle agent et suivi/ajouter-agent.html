@@ -21,7 +21,7 @@
 <section class="success-card" id="successCard">
 <div class="kicker">Enregistrement confirmé</div><h2>✓ Agent créé et vérifié</h2><div id="successInfo"></div>
 <div class="btnrow spaced-actions"><a class="btn cyan" id="openAgent" href="#">Ouvrir la fiche</a><a class="btn light" id="openFile" href="#" target="_blank" rel="noopener">Ouvrir le brouillon</a><a class="btn light" href="ajouter-agent.html">Ajouter un autre agent</a></div></section>
-</main><script src="app.js?v=20260811-auth-6"></script>
+</main><script src="app.js?v=20260811-auth-6"></script><script src="../data-cache.js?v=20260812-global-1"></script>
 <script>
 const form=q("#agentForm"), status=q("#status"), btn=q("#submitBtn");const directorySelect=q("#directorySelect"), selectedAgent=q("#selectedAgent");let lastPayload=null;let directory=[];
 async function loadDirectory(){try{const data=await apiGet("listDirectory");directory=(data.agents||[]).filter(a=>a&&a.eligible_agent===true);directorySelect.innerHTML='<option value="">Choisir un agent…</option>'+directory.map((a,i)=>`<option value="${i}">${esc(a.nom)} ${esc(a.prenom)}${a.poste?` — ${esc(a.poste)}`:""}${a.suivi_existant?" — suivi déjà créé":""}</option>`).join("");directorySelect.disabled=false}catch(e){directory=[];directorySelect.innerHTML='<option value="">Annuaire indisponible</option>';directorySelect.disabled=true;btn.disabled=true;setStatus(status,"err","Impossible de charger l’annuaire central. Aucun dossier ne peut être créé tant que la liaison n’est pas rétablie.")}}
