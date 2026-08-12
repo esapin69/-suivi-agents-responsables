@@ -8,6 +8,8 @@ const PORTAL_MODULES = [
   {key:"nouveau_stagiaire",title:"Nouveau stagiaire",desc:"Accueil et suivi des stagiaires.",href:"nouveau-stagiaire.html",icon:"◇",tone:"violet"}
 ];
 
+const PORTAL_PLANNING_BRIDGE="https://script.google.com/macros/s/AKfycbwrhifE-4wl-YvKOjJI8HZ_g_ota7tajTKLY3jvLKEF9AvSPjIbVpqcSkSRcl5OdWV9/exec";
+
 function cardTemplate(module){
   const external = module.external ? ' target="_blank" rel="noopener"' : '';
   const arrow = module.external ? '↗' : '→';
@@ -15,6 +17,18 @@ function cardTemplate(module){
     <div class="portal-card-top"><span class="portal-icon">${module.icon}</span><span class="portal-arrow">${arrow}</span></div>
     <h2>${module.title}</h2><p>${module.desc}</p>
   </a>`;
+}
+
+function warmPortalData(){
+  const tasks=[];
+  if(GHEAuth.hasAccess("suivi_des_agents"))tasks.push(apiGet("listAgents"));
+  if(GHEAuth.hasAccess("contacts")||GHEAuth.hasAccess("suivi_des_agents"))tasks.push(apiGet("listDirectory"));
+  if(GHEAuth.hasAccess("planning")){
+    const url=new URL(PORTAL_PLANNING_BRIDGE);
+    url.searchParams.set("mode","list");
+    tasks.push(fetch(url.toString(),{cache:"no-store"}));
+  }
+  tasks.forEach(task=>Promise.resolve(task).catch(()=>{}));
 }
 
 GHEAuth.ready.then(user=>{
@@ -27,4 +41,5 @@ GHEAuth.ready.then(user=>{
   cards.innerHTML = allowed.map(cardTemplate).join("");
   const empty = document.getElementById("portalEmpty");
   empty.hidden = allowed.length > 0;
+  setTimeout(warmPortalData,50);
 });
