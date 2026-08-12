@@ -22,6 +22,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: cloudflare/package-lock.json
       - run: npm ci
         working-directory: cloudflare
       - run: npm run typecheck
