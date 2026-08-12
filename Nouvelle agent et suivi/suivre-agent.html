@@ -7,7 +7,7 @@
 <section class="hero"><div class="kicker">Dossiers agents</div><h1>Quel agent ?</h1><p>Recherchez par nom, prénom ou matricule. La liste vient directement de la source centrale.</p>
 <div class="searchbox"><input id="search" type="search" placeholder="Nom, prénom ou matricule" autocomplete="off"><button class="btn cyan" id="refresh" type="button">Actualiser</button></div>
 <div id="status" class="status"></div></section>
-<div class="agent-list" id="list"></div></main><script src="app.js?v=20260810-auth-1"></script>
+<div class="agent-list" id="list"></div></main><script src="app.js?v=20260810-auth-1"></script><script src="../data-cache.js?v=20260812-global-1"></script>
 <script>
 const list=q("#list"), search=q("#search"), status=q("#status");
 let agents=[];
@@ -22,5 +22,5 @@ async function load(){
  try{const d=await apiGet("listAgents"); agents=d.agents||[]; status.className="status"; render();}
  catch(e){setStatus(status,"err","Impossible de charger la liste : "+esc(e.message));}
 }
-search.addEventListener("input",render); q("#refresh").addEventListener("click",load); load();
+search.addEventListener("input",render); q("#refresh").addEventListener("click",()=>{if(window.GHEDataCache)GHEDataCache.clearApiForAgent();load();}); load();
 </script></body></html>
