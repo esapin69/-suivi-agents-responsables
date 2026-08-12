@@ -1,6 +1,31 @@
 # Suivi des agents responsables
 
-Portail interne publié sur `responsable.esapin.com`. Le suivi des stagiaires brancardiers repose désormais sur un moteur Cloudflare autonome ; Google Apps Script n’est pas utilisé par ce nouveau module.
+Portail interne publié sur `responsable.esapin.com`.
+
+## Décision d’architecture
+
+L’architecture cible validée pour l’ensemble du site est unique :
+
+- **GitHub** est la source unique du code, de l’historique et des validations ;
+- **Cloudflare Workers** exécute l’authentification, les règles métier, l’API et la génération des documents ;
+- **Cloudflare D1** conserve les données structurées ;
+- **Cloudflare R2 privé** conserve les signatures, PDF et autres fichiers ;
+- **Google Drive** peut recevoir une copie ou un export, mais ne doit pas être indispensable au fonctionnement du site ;
+- **Google Apps Script** reste uniquement une passerelle temporaire pour les anciennes rubriques qui n’ont pas encore été migrées.
+
+Aucune nouvelle fonction, base de données ou logique métier ne doit être créée dans Apps Script. Les anciennes fonctions seront migrées vers Cloudflare par étapes vérifiées, sans interruption du site, puis la passerelle Apps Script sera supprimée.
+
+## Règles pour toute future modification
+
+1. Préparer les changements dans une branche et une pull request.
+2. Utiliser Cloudflare pour toute nouvelle fonction du site.
+3. Réutiliser le Worker, D1 et R2 existants avant d’envisager un nouveau service.
+4. Tester les anciennes et les nouvelles fonctions concernées avant toute fusion.
+5. Ne jamais fusionner dans `main` ni mettre volontairement en production sans validation explicite d’Eddy.
+6. Ne jamais stocker de secret, code d’accès ou donnée de production dans GitHub.
+7. Migrer une ancienne rubrique avant de retirer son équivalent Apps Script.
+
+Le fonctionnement de référence est : **demande → branche GitHub → tests → validation explicite → fusion → déploiement Cloudflare**.
 
 ## Suivi des stagiaires
 
@@ -38,7 +63,7 @@ Les rubriques historiques de suivi des nouveaux agents continuent temporairement
 
 Lorsqu’une personne déjà autorisée se reconnecte, son identité est copiée de façon sécurisée dans D1. Un administrateur peut ensuite gérer les accès du module stagiaires directement sur le site. Aucun code personnel n’est stocké en clair.
 
-La passerelle historique pourra être retirée lorsque les autres rubriques auront été migrées et vérifiées. Cette suppression fera l’objet d’une version distincte afin d’éviter toute coupure.
+Chaque ancienne rubrique devra être migrée et vérifiée séparément. La suppression finale de la passerelle historique fera l’objet d’une version distincte afin d’éviter toute coupure.
 
 ## Sécurité et intégrité
 
