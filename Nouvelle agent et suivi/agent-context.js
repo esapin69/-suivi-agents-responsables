@@ -17,6 +17,32 @@ const AgentContext = (() => {
     });
   }
 
+  function apply(agent, partial = false) {
+    document.querySelectorAll("[data-agent-name]").forEach(element => {
+      element.textContent = `${agent.nom || ""} ${agent.prenom || ""}`.trim() || "Agent";
+    });
+    document.querySelectorAll("[data-agent-meta]").forEach(element => {
+      element.textContent = agent.matricule ? `Matricule ${agent.matricule}` : "Sans matricule renseigné";
+    });
+    const status = q("#contextStatus");
+    if (status) {
+      if (partial) setStatus(status, "warn", "Dossier affiché. Les détails se mettent à jour en arrière-plan…");
+      else status.className = "status";
+    }
+    return agent;
+  }
+
+  async function summaryFromList() {
+    const data = await apiGet("listAgents");
+    return (data.agents || []).find(agent => String(agent.id_agent || "") === String(id || "")) || null;
+  }
+
+  async function fullAgent() {
+    const data = await apiGet("getAgent", {id});
+    if (!data.agent) throw new Error("Agent introuvable.");
+    return data.agent;
+  }
+
   async function load() {
     preserveLinks();
     const status = q("#contextStatus");
@@ -25,19 +51,33 @@ const AgentContext = (() => {
       document.querySelectorAll("[data-agent-link]").forEach(element => element.removeAttribute("href"));
       throw new Error("Identifiant agent manquant.");
     }
+
+    const fullPromise = fullAgent();
+    const summaryPromise = summaryFromList().catch(() => null);
+
     try {
-      const data = await apiGet("getAgent", {id});
-      if (!data.agent) throw new Error("Agent introuvable.");
-      const agent = data.agent;
-      document.querySelectorAll("[data-agent-name]").forEach(element => {
-        element.textContent = `${agent.nom} ${agent.prenom}`;
-      });
-      document.querySelectorAll("[data-agent-meta]").forEach(element => {
-        element.textContent = agent.matricule ? `Matricule ${agent.matricule}` : "Sans matricule renseigné";
-      });
-      status.className = "status";
-      return agent;
+      const first = await Promise.race([
+        fullPromise.then(agent => ({type:"full", agent})),
+        summaryPromise.then(agent => ({type:"summary", agent}))
+      ]);
+
+      if (first.type === "full") return apply(first.agent, false);
+      if (first.agent) {
+        apply(first.agent, true);
+        fullPromise.then(agent => apply(agent, false)).catch(() => {
+          if (status) setStatus(status, "warn", "Dossier disponible. Les informations détaillées seront réessayées à la prochaine ouverture.");
+        });
+        return first.agent;
+      }
+
+      const agent = await fullPromise;
+      return apply(agent, false);
     } catch (error) {
+      const summary = await summaryPromise;
+      if (summary) {
+        apply(summary, true);
+        return summary;
+      }
       setStatus(status, "err", `Impossible de charger l’agent : ${esc(error.message)}`);
       throw error;
     }
