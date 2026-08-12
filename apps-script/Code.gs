@@ -1,7 +1,7 @@
 const CONFIG = {
   SOURCE_ID: '16AawBJMEUl-9tNI6lMZqYm2E4SCWvHD5F_vIsPQSPr4',
   SOURCE_SHEET: 'Agents',
-  TEMPLATE_ID: '1C6Ur7UL_4EpOvVvm9ivSPxzKcAVhxlZcDkDstmZ0_zLc',
+  TEMPLATE_ID: '1C6Ur7UL_4EpOvVvm9ivSPxzKcVhxlZcDkDstmZ0_zLc',
   DEST_FOLDER_ID: '1mQ2yGV4BuBN0fcf9TGPLHPgNQodg079-',
   ACCESS_SHEET: 'Annuaire',
   PEOPLE_SHEET: 'PERSONNES',
@@ -50,6 +50,10 @@ function doGet(e) {
           result = {ok:true, agent:getAgent_(String(e.parameter.id || ''))};
         } else if (action === 'getFirstDay') {
           result = {ok:true, first_day:getFirstDay_(String(e.parameter.id || ''))};
+        } else if (action === 'getFollowup') {
+          result = {ok:true, followup:getFollowup_(String(e.parameter.id || ''), String(e.parameter.step || ''))};
+        } else if (action === 'getFollowupOverview') {
+          result = {ok:true, overview:getFollowupOverview_(String(e.parameter.id || ''))};
         } else if (action === 'listEvaluations') {
           result = {ok:true, evaluations:listEvaluations_(String(e.parameter.id || ''))};
         } else if (action === 'getEvaluation') {
@@ -82,11 +86,34 @@ function doPost(e) {
       requireAccess_(principal, accessForAction_(action));
       const responsibleName = principal.prenom + ' ' + principal.nom;
 
-      if (action === 'createAgent') result = createAgent_(payload);
-      else if (action === 'updateAgent') result = updateAgent_(payload);
+      if (action === 'createAgent') {
+        result = createAgent_(payload);
+        if (result && result.ok && result.agent && result.agent.fichier_brouillon_id && typeof ensureFollowupStructureForFile_ === 'function') {
+          try {
+            const ss = ensureFollowupStructureForFile_(result.agent.fichier_brouillon_id);
+            if (typeof syncAgentIdentityToFollowup_ === 'function') syncAgentIdentityToFollowup_(result.agent, ss);
+            if (typeof syncAgentEvaluationIndex_ === 'function') syncAgentEvaluationIndex_(result.agent.id_agent);
+          } catch (syncErr) { console.error('SYNC_CREATE_AGENT', syncErr); }
+        }
+      }
+      else if (action === 'updateAgent') {
+        result = updateAgent_(payload);
+        if (result && result.ok && result.agent && result.agent.fichier_brouillon_id && typeof ensureFollowupStructureForFile_ === 'function') {
+          try {
+            const ss = ensureFollowupStructureForFile_(result.agent.fichier_brouillon_id);
+            if (typeof syncAgentIdentityToFollowup_ === 'function') syncAgentIdentityToFollowup_(result.agent, ss);
+          } catch (syncErr) { console.error('SYNC_UPDATE_AGENT', syncErr); }
+        }
+      }
       else if (action === 'saveFirstDay') {
         payload.chef_nom = responsibleName;
         result = saveFirstDay_(payload);
+        if (result && result.ok && typeof syncFollowupSummary_ === 'function') {
+          try { syncFollowupSummary_(payload.id_agent); } catch (syncErr) { console.error('SYNC_FIRST_DAY', syncErr); }
+        }
+      }
+      else if (action === 'saveFollowup') {
+        result = saveFollowup_(payload, principal);
       }
       else if (action === 'saveEvaluationDraft') {
         payload.evaluateur = responsibleName;
@@ -95,9 +122,15 @@ function doPost(e) {
       else if (action === 'finalizeEvaluation') {
         payload.evaluateur = responsibleName;
         result = finalizeEvaluation_(payload);
+        if (result && result.ok && typeof syncAgentEvaluationIndex_ === 'function') {
+          try { syncAgentEvaluationIndex_(payload.id_agent); } catch (syncErr) { console.error('SYNC_EVALUATION_INDEX', syncErr); }
+        }
       }
       else if (action === 'submitSituation') {
         result = submitSituation_(payload, principal);
+        if (result && result.ok && typeof syncAgentSituations_ === 'function') {
+          try { syncAgentSituations_(payload.id_agent); } catch (syncErr) { console.error('SYNC_SITUATION', syncErr); }
+        }
       }
       else throw new Error('ACTION_INCONNUE');
     }
@@ -218,11 +251,14 @@ function accessForAction_(action) {
     listAgents: 'suivi_des_agents',
     getAgent: 'suivi_des_agents',
     getFirstDay: 'suivi_des_agents',
+    getFollowup: 'suivi_des_agents',
+    getFollowupOverview: 'suivi_des_agents',
     listEvaluations: 'suivi_des_agents',
     getEvaluation: 'suivi_des_agents',
     createAgent: 'suivi_des_agents',
     updateAgent: 'suivi_des_agents',
     saveFirstDay: 'suivi_des_agents',
+    saveFollowup: 'suivi_des_agents',
     saveEvaluationDraft: 'suivi_des_agents',
     finalizeEvaluation: 'suivi_des_agents',
     submitSituation: 'suivi_des_agents'
