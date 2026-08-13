@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "suivi-agents-api",
-  "main": "src/index.ts",
+  "main": "../cloudflare/index.js",
   "compatibility_date": "2026-08-10",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
