@@ -3,14 +3,17 @@ name: QA performance and concurrency
 on:
   push:
     branches:
-      - qa-perf-concurrency-audit-2026-08-13
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch-and-verify:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,8 +29,10 @@ jobs:
       - name: Install QA dependencies
         run: npm ci --prefix backend
 
-      - name: Apply concurrency and performance patch
-        run: node scripts/qa-performance-patch.mjs
+      - name: Verify concurrency patch is already applied
+        run: |
+          node scripts/qa-performance-patch.mjs
+          git diff --exit-code -- apps-script/Code.gs apps-script/EVALUATIONS.gs apps-script/SIGNATURES_EXTERNES.gs apps-script/SUIVI_COMPLET.gs data-cache.js backend/wrangler.jsonc
 
       - name: Check JavaScript syntax
         run: |
@@ -40,29 +45,5 @@ jobs:
       - name: Validate Worker build
         run: ./backend/node_modules/.bin/wrangler deploy --dry-run --config backend/wrangler.jsonc
 
-      - name: Check patch cleanliness
+      - name: Check repository cleanliness
         run: git diff --check
-
-      - name: Commit verified Apps Script patch
-        run: |
-          if git diff --quiet -- apps-script/Code.gs apps-script/EVALUATIONS.gs apps-script/SIGNATURES_EXTERNES.gs apps-script/SUIVI_COMPLET.gs; then
-            echo "Apps Script patch already committed"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps-script/Code.gs apps-script/EVALUATIONS.gs apps-script/SIGNATURES_EXTERNES.gs apps-script/SUIVI_COMPLET.gs
-          git commit -m "Optimise concurrence et performances Apps Script"
-          git push origin HEAD:qa-perf-concurrency-audit-2026-08-13
-
-      - name: Save verified patch
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: qa-performance-concurrency-patch
-          path: |
-            apps-script/Code.gs
-            apps-script/EVALUATIONS.gs
-            apps-script/SIGNATURES_EXTERNES.gs
-            apps-script/SUIVI_COMPLET.gs
-          if-no-files-found: error
