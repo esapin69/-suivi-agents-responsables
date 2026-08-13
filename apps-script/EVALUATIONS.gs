@@ -35,6 +35,7 @@ function saveEvaluationDraft_(p){
   const lock=LockService.getScriptLock(); lock.waitLock(20000);
   try{
     const normalized=normalizeEvaluationPayload_(p,false);
+    assertEvaluationNotFinalizing_(normalized.id_evaluation);
     if(!hasMeaningfulEvaluation_(normalized)) throw new Error('BROUILLON_VIDE');
     const sheet=evaluationSheet_(), rows=evaluationRows_();
     const existing=normalized.id_evaluation?rows.find(x=>x.id_evaluation===normalized.id_evaluation):null;
@@ -54,34 +55,39 @@ function saveEvaluationDraft_(p){
 }
 
 function finalizeEvaluation_(p){
-  const lock=LockService.getScriptLock(); lock.waitLock(30000);
-  let googleDocFile=null,pdfFile=null;
+  const normalized=normalizeEvaluationPayload_(p,true);
+  if(!hasMeaningfulEvaluation_(normalized)) throw new Error('EVALUATION_VIDE');
+
+  const operationId=Utilities.getUuid();
+  const reservation=reserveEvaluationFinalization_(normalized,operationId);
+  const base=reservation.record;
+  let googleDocFile=null,pdfFile=null,committed=false;
+
   try{
-    const normalized=normalizeEvaluationPayload_(p,true);
-    if(!hasMeaningfulEvaluation_(normalized)) throw new Error('EVALUATION_VIDE');
-    const sheet=evaluationSheet_(), rows=evaluationRows_();
-    const existing=normalized.id_evaluation?rows.find(x=>x.id_evaluation===normalized.id_evaluation):null;
-    if(existing&&existing.statut==='VALIDE') throw new Error('EVALUATION_VALIDEE_IMMUABLE');
-    if(existing&&existing.id_agent!==normalized.id_agent) throw new Error('ID_AGENT_INCOHERENT');
-    const agent=requireAgent_(normalized.id_agent), now=new Date();
-    const version=existing?existing.version:nextEvaluationVersion_(rows,normalized.id_agent);
-    const id=existing?existing.id_evaluation:createEvaluationId_();
-    const base=buildEvaluationRecord_(normalized,agent,{id,statut:'VALIDE',version,createdAt:existing?existing.cree_le_raw:now,validatedAt:now,documentUrl:'',sha256:''});
     const generated=generateOfficialEvaluation_(base);
-    googleDocFile=generated.googleDocFile; pdfFile=generated.pdfFile;
-    base.url_document=pdfFile.getUrl(); base.sha256=sha256Hex_(pdfFile.getBlob().getBytes());
-    const rowValues=evaluationRecordToRow_(base);
-    if(existing) sheet.getRange(existing.row_number,1,1,45).setValues([rowValues]); else sheet.appendRow(rowValues);
-    SpreadsheetApp.flush();
-    const verified=getEvaluationById_(id);
-    if(!verified||verified.statut!=='VALIDE'||verified.sha256!==base.sha256||!verified.url_document) throw new Error('VERIFICATION_FINALISATION_ECHOUEE');
-    try{googleDocFile.setTrashed(true);}catch(_){}
+    googleDocFile=generated.googleDocFile;
+    pdfFile=generated.pdfFile;
+    base.url_document=pdfFile.getUrl();
+    base.sha256=sha256Hex_(pdfFile.getBlob().getBytes());
+
+    commitEvaluationFinalization_(base,operationId);
+    committed=true;
+
+    const verified=getEvaluationById_(base.id_evaluation);
+    if(!verified||verified.statut!=='VALIDE'||verified.sha256!==base.sha256||!verified.url_document){
+      throw new Error('VERIFICATION_FINALISATION_ECHOUEE');
+    }
+
+    try{if(googleDocFile)googleDocFile.setTrashed(true);}catch(_){}
     return {ok:true,verified:true,message:'Évaluation validée, PDF généré et empreinte vérifiée.',evaluation:verified};
   }catch(err){
-    try{if(pdfFile)pdfFile.setTrashed(true);}catch(_){}
+    clearEvaluationFinalizationReservation_(base&&base.id_evaluation,operationId);
+    if(!committed){
+      try{if(pdfFile)pdfFile.setTrashed(true);}catch(_){}
+    }
     try{if(googleDocFile)googleDocFile.setTrashed(true);}catch(_){}
     throw err;
-  }finally{lock.releaseLock();}
+  }
 }
 
 function normalizeEvaluationPayload_(p,finalizing){
@@ -288,3 +294,123 @@ function sha256Hex_(bytes){return Utilities.computeDigest(Utilities.DigestAlgori
 function openConvertedDocument_(fileId){let lastError;for(let attempt=0;attempt<6;attempt++){if(attempt)Utilities.sleep(1000*attempt);try{return DocumentApp.openById(fileId);}catch(err){lastError=err;}}throw new Error('DOCUMENT_CONVERTI_INACCESSIBLE: '+String(lastError&&lastError.message||lastError));}
 function convertWordTemplateToGoogleDoc_(name){const template=DriveApp.getFileById(EVAL_CONFIG.TEMPLATE_ID);try{return Drive.Files.create({name,mimeType:'application/vnd.google-apps.document',parents:[EVAL_CONFIG.DEST_FOLDER_ID]},template.getBlob(),{fields:'id,name,mimeType'});}catch(err){throw new Error('CONVERSION_MODELE_WORD_ECHOUEE: '+String(err&&err.message||err));}}
 function testEvaluationConfiguration(){const sh=evaluationSheet_(),template=DriveApp.getFileById(EVAL_CONFIG.TEMPLATE_ID);DriveApp.getFolderById(EVAL_CONFIG.DEST_FOLDER_ID).getName();if(typeof Drive==='undefined'||!Drive.Files)throw new Error('Activez le service avancé Google Drive API.');const copy=convertWordTemplateToGoogleDoc_('TEST AUTORISATION - à supprimer');try{const copiedDoc=openConvertedDocument_(copy.id);copiedDoc.getBody().getText();copiedDoc.saveAndClose();}finally{DriveApp.getFileById(copy.id).setTrashed(true);}console.log(JSON.stringify({ok:true,sheet:sh.getName(),columns:sh.getLastColumn(),source:template.getName(),template:EVAL_CONFIG.TEMPLATE_VERSION}));}
+
+function evaluationFinalizationReservationKey_(evaluationId){
+  return 'EVAL_FINALIZE_V2_' + clean_(evaluationId);
+}
+
+function parseEvaluationFinalizationReservation_(raw){
+  if(!raw) return null;
+  try{
+    const value=JSON.parse(raw);
+    if(!value||typeof value!=='object'||!value.token||!value.id_agent||!Number(value.version)||!Number(value.started_at)) return null;
+    return value;
+  }catch(_){return null;}
+}
+
+function isEvaluationFinalizationReservationFresh_(value){
+  return Boolean(value && Date.now()-Number(value.started_at)<3*60*1000);
+}
+
+function assertEvaluationNotFinalizing_(evaluationId){
+  const id=clean_(evaluationId);
+  if(!id) return;
+  const props=PropertiesService.getScriptProperties();
+  const key=evaluationFinalizationReservationKey_(id);
+  const value=parseEvaluationFinalizationReservation_(props.getProperty(key));
+  if(value&&isEvaluationFinalizationReservationFresh_(value)){
+    throw new Error('EVALUATION_VERROUILLEE_FINALISATION');
+  }
+  if(value) props.deleteProperty(key);
+}
+
+function reserveEvaluationFinalization_(normalized,token){
+  return withBriefScriptLock_(function(){
+    const rows=evaluationRows_();
+    const existing=normalized.id_evaluation?rows.find(x=>x.id_evaluation===normalized.id_evaluation):null;
+    if(existing&&existing.statut==='VALIDE') throw new Error('EVALUATION_VALIDEE_IMMUABLE');
+    if(existing&&existing.id_agent!==normalized.id_agent) throw new Error('ID_AGENT_INCOHERENT');
+
+    const agent=requireAgent_(normalized.id_agent);
+    const id=existing?existing.id_evaluation:createEvaluationId_();
+    const props=PropertiesService.getScriptProperties();
+    const key=evaluationFinalizationReservationKey_(id);
+    const current=parseEvaluationFinalizationReservation_(props.getProperty(key));
+    if(current&&isEvaluationFinalizationReservationFresh_(current)){
+      throw new Error('EVALUATION_VERROUILLEE_FINALISATION');
+    }
+
+    let maxReservedVersion=0;
+    const all=props.getProperties();
+    Object.keys(all).forEach(propertyKey=>{
+      if(propertyKey.indexOf('EVAL_FINALIZE_V2_')!==0) return;
+      const reservation=parseEvaluationFinalizationReservation_(all[propertyKey]);
+      if(!reservation||!isEvaluationFinalizationReservationFresh_(reservation)){
+        props.deleteProperty(propertyKey);
+        return;
+      }
+      if(reservation.id_agent===normalized.id_agent){
+        maxReservedVersion=Math.max(maxReservedVersion,Number(reservation.version)||0);
+      }
+    });
+
+    const version=existing
+      ? existing.version
+      : Math.max(nextEvaluationVersion_(rows,normalized.id_agent),maxReservedVersion+1);
+    const now=new Date();
+    props.setProperty(key,JSON.stringify({
+      token:String(token),
+      id_agent:normalized.id_agent,
+      version,
+      started_at:Date.now()
+    }));
+
+    return {
+      record:buildEvaluationRecord_(normalized,agent,{
+        id,
+        statut:'VALIDE',
+        version,
+        createdAt:existing?existing.cree_le_raw:now,
+        validatedAt:now,
+        documentUrl:'',
+        sha256:''
+      })
+    };
+  },8000);
+}
+
+function commitEvaluationFinalization_(record,token){
+  return withBriefScriptLock_(function(){
+    const props=PropertiesService.getScriptProperties();
+    const key=evaluationFinalizationReservationKey_(record.id_evaluation);
+    const reservation=parseEvaluationFinalizationReservation_(props.getProperty(key));
+    if(!reservation||reservation.token!==String(token)||!isEvaluationFinalizationReservationFresh_(reservation)){
+      throw new Error('EVALUATION_VERROUILLEE_FINALISATION');
+    }
+
+    const sheet=evaluationSheet_();
+    const rows=evaluationRows_();
+    const existing=rows.find(x=>x.id_evaluation===record.id_evaluation);
+    if(existing&&existing.statut==='VALIDE') throw new Error('EVALUATION_VALIDEE_IMMUABLE');
+    if(existing&&existing.id_agent!==record.id_agent) throw new Error('ID_AGENT_INCOHERENT');
+
+    const rowValues=evaluationRecordToRow_(record);
+    if(existing) sheet.getRange(existing.row_number,1,1,45).setValues([rowValues]);
+    else sheet.appendRow(rowValues);
+    SpreadsheetApp.flush();
+    props.deleteProperty(key);
+  },8000);
+}
+
+function clearEvaluationFinalizationReservation_(evaluationId,token){
+  const id=clean_(evaluationId);
+  if(!id) return;
+  try{
+    withBriefScriptLock_(function(){
+      const props=PropertiesService.getScriptProperties();
+      const key=evaluationFinalizationReservationKey_(id);
+      const current=parseEvaluationFinalizationReservation_(props.getProperty(key));
+      if(current&&current.token===String(token)) props.deleteProperty(key);
+    },3000);
+  }catch(_){}
+}

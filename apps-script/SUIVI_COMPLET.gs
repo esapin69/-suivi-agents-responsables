@@ -99,9 +99,6 @@ function saveFollowup_(p, principal) {
   if (!step || !SUIVI_STEPS[step]) throw new Error('ETAPE_SUIVI_INVALIDE');
   if (step === 'premier_jour') throw new Error('UTILISER_SAVE_FIRST_DAY');
 
-  const lock = LockService.getScriptLock();
-  lock.waitLock(25000);
-  try {
     const context = followupContext_(id, step);
     const current = buildFollowupPayload_(context.agent, step, context.sheet);
     const finalize = p.finalize === true || String(p.finalize || '') === '1';
@@ -177,9 +174,6 @@ function saveFollowup_(p, principal) {
         : 'Brouillon enregistré et vérifié.',
       followup: verified
     };
-  } finally {
-    lock.releaseLock();
-  }
 }
 
 function getFollowupOverview_(agentId) {
@@ -551,22 +545,24 @@ function getStoredFollowupStatus_(id, step) {
 }
 
 function upsertFollowupStatus_(id, step, status, dateValidation, evaluator) {
-  const sh = followupStatusSheet_();
-  const last = sh.getLastRow();
-  const values = last >= 2 ? sh.getRange(2, 1, last - 1, 2).getDisplayValues() : [];
-  const found = values.findIndex(r => clean_(r[0]) === id && normalizeFollowupStep_(r[1]) === step);
-  const row = found >= 0 ? found + 2 : last + 1;
-  const d = dateValidation ? parseIsoDate_(dateValidation) : '';
-  sh.getRange(row, 1, 1, 6).setValues([[
-    safeSheetText_(id),
-    safeSheetText_(step),
-    safeSheetText_(status),
-    d || '',
-    new Date(),
-    safeSheetText_(evaluator)
-  ]]);
-  if (d) sh.getRange(row, 4).setNumberFormat('dd/MM/yyyy');
-  try { CacheService.getScriptCache().remove(SUIVI_CONFIG.STATUS_CACHE_KEY); } catch (_) {}
+  return withBriefScriptLock_(function() {
+    const sh = followupStatusSheet_();
+    const last = sh.getLastRow();
+    const values = last >= 2 ? sh.getRange(2, 1, last - 1, 2).getDisplayValues() : [];
+    const found = values.findIndex(r => clean_(r[0]) === id && normalizeFollowupStep_(r[1]) === step);
+    const row = found >= 0 ? found + 2 : last + 1;
+    const d = dateValidation ? parseIsoDate_(dateValidation) : '';
+    sh.getRange(row, 1, 1, 6).setValues([[
+      safeSheetText_(id),
+      safeSheetText_(step),
+      safeSheetText_(status),
+      d || '',
+      new Date(),
+      safeSheetText_(evaluator)
+    ]]);
+    if (d) sh.getRange(row, 4).setNumberFormat('dd/MM/yyyy');
+    try { CacheService.getScriptCache().remove(SUIVI_CONFIG.STATUS_CACHE_KEY); } catch (_) {}
+  }, 5000);
 }
 
 function writeFollowupSummaryDate_(ss, step, isoDate) {

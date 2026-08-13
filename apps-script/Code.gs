@@ -510,19 +510,17 @@ function updateAgent_(p) {
 function fillIdentitySheet_(spreadsheetId, a) {
   const sh = SpreadsheetApp.openById(spreadsheetId).getSheetByName('fiche brancardier');
   if (!sh) throw new Error('ONGLET_FICHE_BRANCARDIER_MANQUANT');
-  sh.getRange('C5').setValue(safeSheetText_(a.nom));
-  sh.getRange('C6').setValue(safeSheetText_(a.prenom));
-  sh.getRange('C7').setValue(safeSheetText_(a.telephone));
-  sh.getRange('C8').setValue(safeSheetText_(a.matricule));
-  if (a.dateArrivee) {
-    const parts = String(a.dateArrivee).split('-');
-    if (parts.length === 3) {
-      sh.getRange('C9').setValue(new Date(Number(parts[0]),Number(parts[1])-1,Number(parts[2])));
-      sh.getRange('C9').setNumberFormat('dd/MM/yyyy');
-    } else sh.getRange('C9').setValue(a.dateArrivee);
-  } else sh.getRange('C9').clearContent();
+
+  const arrival = parseIsoDate_(a.dateArrivee);
+  sh.getRange('C5:C9').setValues([
+    [safeSheetText_(a.nom)],
+    [safeSheetText_(a.prenom)],
+    [safeSheetText_(a.telephone)],
+    [safeSheetText_(a.matricule)],
+    [arrival || safeSheetText_(a.dateArrivee)]
+  ]);
+  if (arrival) sh.getRange('C9').setNumberFormat('dd/MM/yyyy');
   sh.getRange('A12').setValue(safeSheetText_(a.experiences));
-  SpreadsheetApp.flush();
 }
 
 /* ========================= PREMIER JOUR ========================= */
@@ -777,9 +775,15 @@ function getAgent_(id) {
   const sheet = sourceSheet_();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return null;
-  const r = sheet.getRange(2,1,lastRow-1,15).getValues()
-    .find(row => clean_(row[COL.ID-1]) === id);
-  if (!r) return null;
+
+  const match = sheet.getRange(2, COL.ID, lastRow - 1, 1)
+    .createTextFinder(String(id))
+    .matchEntireCell(true)
+    .useRegularExpression(false)
+    .findNext();
+  if (!match) return null;
+
+  const r = sheet.getRange(match.getRow(), 1, 1, 15).getValues()[0];
   return {
     id_agent:clean_(r[COL.ID-1]), nom:clean_(r[COL.NOM-1]), prenom:clean_(r[COL.PRENOM-1]),
     telephone:clean_(r[COL.TELEPHONE-1]), matricule:clean_(r[COL.MATRICULE-1]),
@@ -874,4 +878,14 @@ function testSecurityConfiguration() {
     is_admin:publicAccessUser_(row).is_admin, access:row.access
   }));
   return {ok:true, authorized_count:authorized.length, authorized};
+}
+
+function withBriefScriptLock_(fn, waitMs) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(Number(waitMs || 5000));
+  try {
+    return fn();
+  } finally {
+    lock.releaseLock();
+  }
 }

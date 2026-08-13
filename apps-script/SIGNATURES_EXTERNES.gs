@@ -31,6 +31,7 @@ function createAgentSignatureRequest_(p, principal) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
+    assertEvaluationNotFinalizing_(evaluationId);
     const ev = externalSignatureEvaluation_(evaluationId);
     if (ev.statut !== 'BROUILLON') throw new Error('EVALUATION_DEJA_OFFICIELLE');
     assertEvaluationReadyForExternalSignature_(ev);
