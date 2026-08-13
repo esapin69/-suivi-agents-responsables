@@ -1,5 +1,7 @@
-const id=new URL(location.href).searchParams.get("id"),status=q("#status"),view=q("#view"),edit=q("#edit"),follow=q("#follow"),form=q("#editForm"),es=q("#editStatus");
+const id=new URL(location.href).searchParams.get("id"),status=q("#status"),view=q("#view"),manage=q("#manage"),manageStatus=q("#manageStatus"),edit=q("#edit"),follow=q("#follow"),form=q("#editForm"),es=q("#editStatus");
 let agent=null,fullLoaded=false,warmed=false;
+
+function canManage(){return Boolean(window.GHEAuth&&GHEAuth.hasAccess("gestion"));}
 
 function warmAgentModules(){
   if(warmed||!id)return;
@@ -27,7 +29,6 @@ function paint(a,{partial=false}={}){
   for(const[k,v]of Object.entries({nom:agent.nom,prenom:agent.prenom,telephone:agent.telephone,matricule:agent.matricule,date_arrivee:agent.date_arrivee,experiences:agent.experiences}))if(form.elements[k])form.elements[k].value=v||"";
   view.hidden=false;
   follow.hidden=false;
-  q("#editBtn").disabled=partial&&!fullLoaded;
   if(partial)setStatus(status,"warn","Fiche disponible. Les détails se mettent à jour en arrière-plan…");
   else status.className="status";
   warmAgentModules();
@@ -65,10 +66,38 @@ async function load(){
   }
 }
 
-q("#editBtn").onclick=()=>{if(!fullLoaded)return;edit.hidden=false;edit.scrollIntoView({behavior:"smooth"});};
+q("#manageBtn").onclick=()=>{
+  if(!canManage())return;
+  manage.hidden=false;
+  manage.scrollIntoView({behavior:"smooth"});
+};
+q("#manageCloseBtn").onclick=()=>{manage.hidden=true;manageStatus.className="status";};
+q("#manageEditBtn").onclick=async()=>{
+  if(!canManage())return;
+  if(!fullLoaded){
+    setStatus(manageStatus,"warn","Chargement des informations complètes…");
+    try{await loadFull();}catch(e){setStatus(manageStatus,"err",esc(e.message));return;}
+  }
+  edit.hidden=false;
+  edit.scrollIntoView({behavior:"smooth"});
+};
+q("#manageRefreshBtn").onclick=async()=>{
+  if(!canManage())return;
+  setStatus(manageStatus,"warn","Actualisation en cours…");
+  try{await loadFull();setStatus(manageStatus,"ok","✓ Fiche actualisée depuis la source centrale.");}
+  catch(e){setStatus(manageStatus,"err","Échec : "+esc(e.message));}
+};
+q("#manageCopyBtn").onclick=async()=>{
+  if(!canManage())return;
+  const value=String(agent?.id_agent||id||"");
+  if(!value){setStatus(manageStatus,"err","Identifiant indisponible.");return;}
+  try{await navigator.clipboard.writeText(value);setStatus(manageStatus,"ok","✓ Identifiant copié.");}
+  catch(_){setStatus(manageStatus,"warn","Identifiant : <strong>"+esc(value)+"</strong>");}
+};
 q("#cancel").onclick=()=>{edit.hidden=true;};
 form.addEventListener("submit",async e=>{
   e.preventDefault();
+  if(!canManage()){setStatus(es,"err","Accès Gestion requis.");return;}
   setStatus(es,"warn","Modification et vérification en cours…");
   try{
     const d=await apiPost("updateAgent",{id_agent:id,...formObject(form)});
