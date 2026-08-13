@@ -1,0 +1,56 @@
+name: QA performance and concurrency
+
+on:
+  push:
+    branches:
+      - qa-perf-concurrency-audit-2026-08-13
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install QA dependencies
+        run: npm ci --prefix backend
+
+      - name: Apply concurrency and performance patch
+        run: node scripts/qa-performance-patch.mjs
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check data-cache.js
+          node --check cloudflare/index.js
+
+      - name: Run security and architecture tests
+        run: node --test architecture-consistency.test.cjs site-security.test.cjs apps-script/security.test.cjs
+
+      - name: Validate Worker build
+        run: ./backend/node_modules/.bin/wrangler deploy --dry-run --config backend/wrangler.jsonc
+
+      - name: Check patch cleanliness
+        run: git diff --check
+
+      - name: Save verified patch
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-performance-concurrency-patch
+          path: |
+            apps-script/Code.gs
+            apps-script/EVALUATIONS.gs
+            apps-script/SIGNATURES_EXTERNES.gs
+            apps-script/SUIVI_COMPLET.gs
+          if-no-files-found: error
