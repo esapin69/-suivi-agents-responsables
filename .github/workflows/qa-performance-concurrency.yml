@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   patch-and-verify:
@@ -42,6 +42,18 @@ jobs:
 
       - name: Check patch cleanliness
         run: git diff --check
+
+      - name: Commit verified Apps Script patch
+        run: |
+          if git diff --quiet -- apps-script/Code.gs apps-script/EVALUATIONS.gs apps-script/SIGNATURES_EXTERNES.gs apps-script/SUIVI_COMPLET.gs; then
+            echo "Apps Script patch already committed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps-script/Code.gs apps-script/EVALUATIONS.gs apps-script/SIGNATURES_EXTERNES.gs apps-script/SUIVI_COMPLET.gs
+          git commit -m "Optimise concurrence et performances Apps Script"
+          git push origin HEAD:qa-perf-concurrency-audit-2026-08-13
 
       - name: Save verified patch
         if: always()
