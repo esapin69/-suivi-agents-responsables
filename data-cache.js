@@ -1,16 +1,20 @@
 (()=>{
   "use strict";
 
-  const PREFIX="ghe:data:v3:";
+  const PREFIX="ghe:data:v4:";
   const nativeFetch=window.fetch.bind(window);
+  const inflight=new Map();
 
   const API_POLICIES={
-    listAgents:{fresh:60_000,stale:5*60_000},
-    listDirectory:{fresh:60_000,stale:5*60_000},
-    getAgent:{fresh:30_000,stale:2*60_000},
-    getFirstDay:{fresh:15_000,stale:60_000},
-    listEvaluations:{fresh:20_000,stale:60_000},
-    getEvaluation:{fresh:20_000,stale:2*60_000}
+    listAgents:{fresh:15_000,stale:60_000},
+    listDirectory:{fresh:15_000,stale:60_000},
+    getAgent:{fresh:15_000,stale:60_000},
+    getFirstDay:{fresh:10_000,stale:45_000},
+    getFollowup:{fresh:10_000,stale:45_000},
+    getFollowupOverview:{fresh:15_000,stale:60_000},
+    listEvaluations:{fresh:15_000,stale:45_000},
+    getEvaluation:{fresh:15_000,stale:60_000},
+    getAgentSignatureStatus:{fresh:3_000,stale:10_000}
   };
 
   const PLANNING_POLICIES={
@@ -68,13 +72,28 @@
   }
 
   async function networkAndStore(input,init,storage,key){
-    const response=await nativeFetch(input,init);
-    if(response.ok){
-      const clone=response.clone();
-      const body=await clone.text();
-      writeEntry(storage,key,response,body);
+    if(inflight.has(key)){
+      const shared=await inflight.get(key);
+      return shared.clone();
     }
-    return response;
+
+    const task=(async()=>{
+      const response=await nativeFetch(input,init);
+      if(response.ok){
+        const clone=response.clone();
+        const body=await clone.text();
+        writeEntry(storage,key,response,body);
+      }
+      return response;
+    })();
+
+    inflight.set(key,task);
+    try{
+      const response=await task;
+      return response.clone();
+    }finally{
+      if(inflight.get(key)===task)inflight.delete(key);
+    }
   }
 
   function backgroundRefresh(input,init,storage,key){
@@ -121,7 +140,12 @@
       if(response.ok&&url.hostname==="responsable-api.esapin.com"){
         const action=url.searchParams.get("action")||"";
         if(action==="login"||action==="logout")clearAll();
-        else if(["createAgent","updateAgent","saveFirstDay","saveEvaluationDraft","finalizeEvaluation","submitSituation"].includes(action))clearApiForAgent();
+        else if([
+          "createAgent","updateAgent","saveFirstDay","saveFollowup",
+          "saveEvaluationDraft","finalizeEvaluation","submitSituation",
+          "createAgentSignatureRequest","cancelAgentSignatureRequest",
+          "publicSubmitAgentSignature"
+        ].includes(action))clearApiForAgent();
       }
       return response;
     }
