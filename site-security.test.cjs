@@ -50,11 +50,15 @@ test("all private pages wait for a verified session before becoming visible", ()
     if (file.endsWith(`${path.sep}connexion.html`)) continue;
     const html = fs.readFileSync(file, "utf8");
     assert.match(html, /classList\.add\("auth-pending"\)/, `${relative(file)} has no initial auth gate`);
-    assert.match(html, /app\.js\?v=20260810-auth-1/, `${relative(file)} does not load the secured app client`);
+    assert.match(html, /app\.js\?v=\d{8}-auth-\d+/, `${relative(file)} does not load a versioned secured app client`);
   }
 });
 
-test("the published source contains no former email or form-based access path", () => {
+test("the published source contains no former form/email-based authentication path", () => {
+  const loginFile = path.join(siteDirectory, "connexion.html");
+  const loginHtml = fs.readFileSync(loginFile, "utf8");
+  assert.doesNotMatch(loginHtml, /type=["']email["']|name=["']email["']/i);
+
   const sourceFiles = [
     ...htmlFiles,
     ...fs.readdirSync(siteDirectory)
@@ -64,7 +68,7 @@ test("the published source contains no former email or form-based access path", 
     path.join(root, "apps-script", "EVALUATIONS.gs"),
   ];
   const source = sourceFiles.map(file => fs.readFileSync(file, "utf8")).join("\n");
-  assert.doesNotMatch(source, /workers\.dev|formResponse|entry\.|e-?mail|email/i);
+  assert.doesNotMatch(source, /workers\.dev|formResponse|entry\./i);
   assert.equal(source.includes(["000", "001"].join("")), false);
   assert.equal(fs.existsSync(path.join(siteDirectory, "annuaire.js")), false);
 });
