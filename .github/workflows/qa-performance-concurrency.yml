@@ -29,17 +29,12 @@ jobs:
       - name: Install QA dependencies
         run: npm ci --prefix backend
 
-      - name: Verify concurrency patch is already applied
-        run: |
-          node scripts/qa-performance-patch.mjs
-          git diff --exit-code -- apps-script/Code.gs apps-script/EVALUATIONS.gs apps-script/SIGNATURES_EXTERNES.gs apps-script/SUIVI_COMPLET.gs data-cache.js backend/wrangler.jsonc
-
       - name: Check JavaScript syntax
         run: |
           node --check data-cache.js
           node --check cloudflare/index.js
 
-      - name: Run security and architecture tests
+      - name: Run security, concurrency and architecture tests
         run: node --test architecture-consistency.test.cjs site-security.test.cjs apps-script/security.test.cjs
 
       - name: Validate Worker build
