@@ -1,4 +1,4 @@
-const id=new URL(location.href).searchParams.get("id"),status=q("#status"),view=q("#view"),manage=q("#manage"),manageStatus=q("#manageStatus"),edit=q("#edit"),follow=q("#follow"),form=q("#editForm"),es=q("#editStatus");
+const id=new URL(location.href).searchParams.get("id"),status=q("#status"),view=q("#view"),edit=q("#edit"),follow=q("#follow"),form=q("#editForm"),es=q("#editStatus");
 let agent=null,fullLoaded=false,warmed=false;
 
 function canManage(){return Boolean(window.GHEAuth&&GHEAuth.hasAccess("gestion"));}
@@ -19,7 +19,7 @@ function paint(a,{partial=false}={}){
   agent={...(agent||{}),...a};
   q("#name").textContent=`${agent.nom||""} ${agent.prenom||""}`.trim()||"Agent";
   q("#verify").innerHTML=`Statut : <strong>${esc(agent.verification||"")}</strong>`;
-  q("#details").innerHTML=`<div class="detail"><small>Téléphone</small><strong>${esc(agent.telephone||"—")}</strong></div><div class="detail"><small>Matricule</small><strong>${esc(agent.matricule||"Non renseigné")}</strong></div><div class="detail"><small>Date d’arrivée</small><strong>${esc(displayDate(agent.date_arrivee))}</strong></div><div class="detail"><small>Expérience</small><strong>${esc(agent.experiences||"—")}</strong></div>`;
+  q("#details").innerHTML=`<div class="detail" data-admin-field="telephone"><small>Téléphone</small><strong>${esc(agent.telephone||"—")}</strong></div><div class="detail" data-admin-field="matricule"><small>Matricule</small><strong>${esc(agent.matricule||"Non renseigné")}</strong></div><div class="detail" data-admin-field="date_arrivee"><small>Date d’arrivée</small><strong>${esc(displayDate(agent.date_arrivee))}</strong></div><div class="detail" data-admin-field="experiences"><small>Expérience</small><strong>${esc(agent.experiences||"—")}</strong></div>`;
   const fileBtn=q("#fileBtn");
   fileBtn.href=agent.fichier_brouillon_url||"#";
   fileBtn.hidden=!agent.fichier_brouillon_url;
@@ -32,6 +32,7 @@ function paint(a,{partial=false}={}){
   if(partial)setStatus(status,"warn","Fiche disponible. Les détails se mettent à jour en arrière-plan…");
   else status.className="status";
   warmAgentModules();
+  window.GHEGestion?.decorate?.();
 }
 
 async function loadSummary(){
@@ -66,34 +67,26 @@ async function load(){
   }
 }
 
-q("#manageBtn").onclick=()=>{
-  if(!canManage())return;
-  manage.hidden=false;
-  manage.scrollIntoView({behavior:"smooth"});
-};
-q("#manageCloseBtn").onclick=()=>{manage.hidden=true;manageStatus.className="status";};
-q("#manageEditBtn").onclick=async()=>{
+async function openEdit(field=""){
   if(!canManage())return;
   if(!fullLoaded){
-    setStatus(manageStatus,"warn","Chargement des informations complètes…");
-    try{await loadFull();}catch(e){setStatus(manageStatus,"err",esc(e.message));return;}
+    try{await loadFull();}catch(e){setStatus(status,"err",esc(e.message));return;}
   }
   edit.hidden=false;
-  edit.scrollIntoView({behavior:"smooth"});
-};
-q("#manageRefreshBtn").onclick=async()=>{
+  requestAnimationFrame(()=>{
+    edit.scrollIntoView({behavior:"smooth",block:"start"});
+    const control=field&&form.elements[field];
+    if(control&&typeof control.focus==="function")setTimeout(()=>control.focus({preventScroll:true}),250);
+  });
+}
+
+async function refreshAgent(){
   if(!canManage())return;
-  setStatus(manageStatus,"warn","Actualisation en cours…");
-  try{await loadFull();setStatus(manageStatus,"ok","✓ Fiche actualisée depuis la source centrale.");}
-  catch(e){setStatus(manageStatus,"err","Échec : "+esc(e.message));}
-};
-q("#manageCopyBtn").onclick=async()=>{
-  if(!canManage())return;
-  const value=String(agent?.id_agent||id||"");
-  if(!value){setStatus(manageStatus,"err","Identifiant indisponible.");return;}
-  try{await navigator.clipboard.writeText(value);setStatus(manageStatus,"ok","✓ Identifiant copié.");}
-  catch(_){setStatus(manageStatus,"warn","Identifiant : <strong>"+esc(value)+"</strong>");}
-};
+  setStatus(status,"warn","Actualisation depuis la source…");
+  try{await loadFull();setStatus(status,"ok","✓ Fiche actualisée depuis la source centrale.");setTimeout(()=>{if(status.classList.contains("ok"))status.className="status";},1400);}
+  catch(e){setStatus(status,"err","Échec : "+esc(e.message));}
+}
+
 q("#cancel").onclick=()=>{edit.hidden=true;};
 form.addEventListener("submit",async e=>{
   e.preventDefault();
@@ -109,4 +102,15 @@ form.addEventListener("submit",async e=>{
   }catch(err){setStatus(es,"err","Échec : "+esc(err.message));}
 });
 
-load();
+window.GHEAgentAdmin={
+  edit:openEdit,
+  refresh:refreshAgent,
+  get id(){return String(agent?.id_agent||id||"");},
+  get fileUrl(){return String(agent?.fichier_brouillon_url||"");}
+};
+
+GHEAuth.ready.then(()=>{
+  load().then(()=>{
+    if(canManage()&&new URL(location.href).searchParams.get("edit")==="1")openEdit();
+  });
+});
