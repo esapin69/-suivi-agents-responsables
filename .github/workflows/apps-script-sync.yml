@@ -1,0 +1,84 @@
+name: Apps Script Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Action à effectuer sur Google Apps Script"
+        required: true
+        default: audit
+        type: choice
+        options:
+          - audit
+          - push
+
+jobs:
+  sync-apps-script:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps-script
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Restore clasp OAuth
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON" || (echo "Missing GitHub secret CLASPRC_JSON" && exit 1)
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Verify authorized account and target project
+        run: |
+          clasp show-authorized-user
+          clasp show-file-status
+
+      - name: Pull current Google project into temporary backup
+        run: |
+          set -euo pipefail
+          REMOTE_DIR="$RUNNER_TEMP/apps-script-before-sync"
+          rm -rf "$REMOTE_DIR"
+          mkdir -p "$REMOTE_DIR"
+          cp .clasp.json "$REMOTE_DIR/.clasp.json"
+          cd "$REMOTE_DIR"
+          clasp pull
+          tar -czf "$RUNNER_TEMP/apps-script-before-sync.tgz" .
+
+      - name: Upload pre-sync backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: apps-script-before-sync-${{ github.run_id }}
+          path: ${{ runner.temp }}/apps-script-before-sync.tgz
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Compare Google project with repository
+        run: |
+          set +e
+          diff -ru \
+            --exclude='.clasp.json' \
+            --exclude='security.test.cjs' \
+            "$RUNNER_TEMP/apps-script-before-sync" \
+            "$GITHUB_WORKSPACE/apps-script"
+          CODE=$?
+          if [ "$CODE" -eq 0 ]; then
+            echo "Google Apps Script et GitHub sont déjà identiques pour les fichiers synchronisés."
+          elif [ "$CODE" -eq 1 ]; then
+            echo "Des différences existent. Elles sont affichées ci-dessus et la sauvegarde est disponible en artefact."
+          else
+            exit "$CODE"
+          fi
+
+      - name: Push repository to Google Apps Script
+        if: ${{ inputs.operation == 'push' }}
+        run: clasp push --force
