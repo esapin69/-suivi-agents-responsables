@@ -1,13 +1,12 @@
 <!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://responsable-api.esapin.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'sha256-yuKLmfhU1K4uA/acXcTOmEZoIAOxr2pB0mMmFxZr26Y='; script-src-attr 'none'; worker-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
 <script>document.documentElement.classList.add("auth-pending")</script>
-<title>Fiche agent</title><link rel="stylesheet" href="style.css?v=20260810-auth-1"></head><body>
+<title>Fiche agent</title><link rel="stylesheet" href="style.css?v=20260815-gestion-3"></head><body>
 <header class="top"><div class="brand"><b>GHE</b> · FICHE AGENT</div><a class="home" href="suivre-agent.html">Agents</a></header>
 <main class="shell"><a class="back" href="suivre-agent.html">← Retour aux agents</a>
 <div id="status" class="status show warn">Chargement de la fiche…</div>
-<section class="hero" id="view" hidden><div class="agent-head"><div><div class="kicker">Dossier individuel</div><h1 id="name">Agent</h1><p id="verify"></p></div><button class="btn light" id="manageBtn" type="button" data-access="gestion" hidden>⋯ Gestion</button></div>
+<section class="hero" id="view" hidden><div class="agent-head"><div><div class="kicker">Dossier individuel</div><h1 id="name">Agent</h1><p id="verify"></p></div></div>
 <div class="details" id="details"></div><div class="btnrow spaced-actions"><a class="btn cyan" id="fileBtn" href="#" target="_blank" rel="noopener">Ouvrir le fichier BROUILLON</a></div></section>
-<section class="panel" id="manage" data-access="gestion" hidden><div class="kicker">Gestion avancée</div><h2>Actions sur cet agent</h2><p>Les outils de gestion restent regroupés ici et n’ajoutent aucun bouton sur l’accueil.</p><div class="btnrow"><button class="btn cyan" id="manageEditBtn" type="button">Modifier les informations</button><button class="btn light" id="manageRefreshBtn" type="button">Actualiser la fiche</button><button class="btn light" id="manageCopyBtn" type="button">Copier l’identifiant</button><button class="btn light" id="manageCloseBtn" type="button">Fermer</button></div><div id="manageStatus" class="status"></div></section>
 <section class="panel" id="edit" data-access="gestion" hidden><h2>Modifier les informations</h2><form class="form" id="editForm">
 <label>Nom *<input name="nom" type="text" required></label><label>Prénom *<input name="prenom" type="text" required></label><label>N° de téléphone<input name="telephone" type="tel" inputmode="tel"></label><label>N° de matricule<input name="matricule" type="text"></label><label>Date d’arrivée au STIP *<input name="date_arrivee" type="date" required></label><label>Expériences professionnelles<textarea name="experiences"></textarea></label><div id="editStatus" class="status"></div><div class="btnrow"><button class="btn cyan" type="submit">Enregistrer et vérifier</button><button class="btn light" type="button" id="cancel">Annuler</button></div></form></section>
 <section class="panel" id="follow" hidden>
@@ -18,4 +17,4 @@
 <a class="workspace-block" id="evaluationsLink" href="#"><div class="workspace-icon" aria-hidden="true">✓</div><div><h3>Évaluations</h3><p>Évaluations officielles datées, consultables, modifiables et imprimables.</p><span class="workspace-state">Ouvrir les évaluations →</span></div></a>
 <a class="workspace-block" id="eventsLink" href="#"><div class="workspace-icon" aria-hidden="true">!</div><div><h3>Situations / événements</h3><p>Événements ponctuels et situations particulières liés à l’agent.</p><span class="workspace-state">Ouvrir les événements →</span></div></a>
 </div></section>
-</main><script src="app.js?v=20260811-auth-4"></script><script src="../data-cache.js?v=20260812-global-1"></script><script src="agent-page.js?v=20260814-gestion-1"></script></body></html>
+</main><script src="app.js?v=20260815-gestion-3"></script><script src="../data-cache.js?v=20260812-global-1"></script><script src="agent-page.js?v=20260815-gestion-3"></script></body></html>
