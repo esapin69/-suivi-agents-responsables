@@ -23,9 +23,11 @@ function paint(a,{partial=false}={}){
   const fileBtn=q("#fileBtn");
   fileBtn.href=agent.fichier_brouillon_url||"#";
   fileBtn.hidden=!agent.fichier_brouillon_url;
-  q("#integrationLink").href=`suivi-integration.html?id=${encodeURIComponent(agent.id_agent||id)}`;
-  q("#evaluationsLink").href=`evaluations.html?id=${encodeURIComponent(agent.id_agent||id)}`;
-  q("#eventsLink").href=`situations-evenements.html?id=${encodeURIComponent(agent.id_agent||id)}`;
+  const agentId=encodeURIComponent(agent.id_agent||id);
+  q("#integrationLink").href=`suivi-integration.html?id=${agentId}`;
+  q("#evaluationsLink").href=`evaluations.html?id=${agentId}`;
+  q("#officialDocumentsLink").href=`../official-documents.html?id=${agentId}`;
+  q("#eventsLink").href=`situations-evenements.html?id=${agentId}`;
   for(const[k,v]of Object.entries({nom:agent.nom,prenom:agent.prenom,telephone:agent.telephone,matricule:agent.matricule,date_arrivee:agent.date_arrivee,experiences:agent.experiences}))if(form.elements[k])form.elements[k].value=v||"";
   view.hidden=false;
   follow.hidden=false;
