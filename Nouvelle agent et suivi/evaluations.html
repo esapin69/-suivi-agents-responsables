@@ -21,29 +21,29 @@
   <section class="context-card"><div><div class="kicker">Agent sélectionné</div><div class="context-name" data-agent-name>Chargement…</div><p data-agent-meta></p></div><a class="btn light" data-agent-link="agent.html" href="suivre-agent.html">Voir la fiche</a></section>
 
   <section class="panel" id="listPanel">
-    <div class="evaluation-title-row"><div><div class="kicker">Suivi terrain et historique officiel</div><h1 class="page-title">Évaluations</h1><p class="official-note">Notez uniquement ce que vous avez réellement observé. Les autres critères restent sur « Non observé ».</p></div><button class="btn cyan" id="newBtn" type="button">Ajouter une observation</button></div>
+    <div class="evaluation-title-row"><div><div class="kicker">Suivi terrain et historique officiel</div><h1 class="page-title">Évaluations</h1><p class="official-note">Remplissez l’évaluation au fil du temps, dans l’ordre que vous voulez. Tant qu’elle n’est pas extraite, le brouillon reste modifiable.</p></div><button class="btn cyan" id="newBtn" type="button">Ajouter une observation</button></div>
     <div id="listStatus" class="status"></div><div id="evaluationList" class="evaluation-list"></div>
   </section>
 
   <section class="panel evaluation-form-panel" id="formPanel" hidden>
-    <div class="evaluation-title-row form-heading"><div><div class="kicker" id="formKicker">Nouvelle observation</div><h2 id="formTitle">Suivi terrain</h2><p class="official-note">Le brouillon ne sera créé que si vous enregistrez au moins un élément réellement observé.</p></div><button class="btn light" id="closeBtn" type="button">Fermer</button></div>
+    <div class="evaluation-title-row form-heading"><div><div class="kicker" id="formKicker">Nouvelle observation</div><h2 id="formTitle">Suivi terrain</h2><p class="official-note">Enregistrez seulement ce que vous avez déjà renseigné. Les contrôles complets ne sont demandés qu’au moment de l’extraction officielle.</p></div><button class="btn light" id="closeBtn" type="button">Fermer</button></div>
 
     <div id="validatedView" class="validated-view" hidden>
       <div class="validated-check" aria-hidden="true">✓</div>
       <div class="validated-content">
         <div class="kicker">Version protégée</div>
         <h3>Document officiel créé</h3>
-        <p>Cette version est validée et n’est plus modifiable. Vous pouvez ouvrir le PDF, revenir à la fiche de l’agent ou préparer une nouvelle version.</p>
+        <p>Cette version est figée et n’est plus modifiable. Vous pouvez ouvrir le PDF ou démarrer une nouvelle évaluation vide sans toucher à l’historique.</p>
         <div class="validated-meta" id="validatedMeta"></div>
         <div class="validated-actions">
           <a class="btn cyan" id="validatedPdfBtn" href="#" target="_blank" rel="noopener">Ouvrir le PDF officiel</a>
-          <button class="btn light" id="validatedNewVersionBtn" type="button">Créer une nouvelle version</button>
+          <button class="btn light" id="validatedNewVersionBtn" type="button">Commencer une nouvelle évaluation</button>
           <a class="btn light" data-agent-link="agent.html" href="agent.html">Retour à la fiche agent</a>
         </div>
       </div>
     </div>
 
-    <form id="evaluationForm" class="form">
+    <form id="evaluationForm" class="form" novalidate>
       <input type="hidden" name="id_evaluation">
       <section class="identity-sheet" aria-labelledby="identityTitle">
         <div class="section-number">Informations administratives</div><h3 id="identityTitle">Agent évalué</h3>
@@ -61,22 +61,22 @@
       <div id="criteria"></div>
 
       <section class="decision-sheet">
-        <div class="decision-heading"><div class="section-number">Conclusion</div><h3>Finaliser l’évaluation</h3><p>Cette partie n’est nécessaire que lorsque vous souhaitez créer le document officiel.</p></div>
+        <div class="decision-heading"><div class="section-number">Conclusion</div><h3>Finaliser l’évaluation</h3><p>Cette partie peut rester incomplète pendant le brouillon. Elle doit être terminée avant l’extraction officielle.</p></div>
         <label class="general-observations">Observations générales<textarea name="observations_generales" placeholder="Synthèse de l’évaluation"></textarea></label>
         <div class="decision-meta"><fieldset class="keep-agent"><legend>Aimeriez-vous garder cet agent ? *</legend><label><input type="radio" name="garder_agent" value="OUI" required><span>Oui</span></label><label><input type="radio" name="garder_agent" value="NON" required><span>Non</span></label></fieldset><div class="signature-date"><label>Fait à Lyon, le *<input name="lyon_le" type="date" required></label></div></div>
         <div class="signature-grid" role="group" aria-label="Signatures du document officiel">
           <div class="signature-pad" data-signature="agent"><div class="signature-title"><strong>Agent</strong><span>Optionnelle</span></div><canvas>Zone de signature de l’agent</canvas><button type="button" class="signature-clear">Effacer</button></div>
-          <div class="signature-pad" data-signature="responsable"><div class="signature-title"><strong>Responsable</strong><span class="required-badge">Obligatoire</span></div><canvas>Zone de signature du responsable</canvas><button type="button" class="signature-clear">Effacer</button></div>
+          <div class="signature-pad" data-signature="responsable"><div class="signature-title"><strong>Responsable</strong><span class="required-badge">Obligatoire à l’extraction</span></div><canvas>Zone de signature du responsable</canvas><button type="button" class="signature-clear">Effacer</button></div>
           <div class="signature-pad" data-signature="direction"><div class="signature-title"><strong>Direction ou chef de service</strong><span>Optionnelle</span></div><canvas>Zone de signature de la direction</canvas><button type="button" class="signature-clear">Effacer</button></div>
         </div><p class="signature-help">Signez directement au doigt, au stylet ou à la souris.</p>
       </section>
 
       <div id="formStatus" class="status" role="status" aria-live="assertive"></div><a class="btn cyan evaluation-pdf" id="pdfBtn" href="#" target="_blank" rel="noopener" hidden>Ouvrir le PDF officiel</a>
-      <div class="final-warning" id="finalConfirmation"><div class="final-warning-copy"><span aria-hidden="true">✓</span><div><strong>Prêt à créer le document officiel ?</strong><p>Après validation, cette version et son PDF ne seront plus modifiables.</p></div></div><label class="confirm-line"><input type="checkbox" id="confirmFinal"><span><strong>J’ai relu toute l’évaluation</strong><small>Une correction ultérieure créera une nouvelle version.</small></span></label></div>
-      <div class="btnrow"><button class="btn light" id="saveBtn" type="submit">Enregistrer le brouillon</button><button class="btn cyan" id="finalizeBtn" type="button">Valider et générer le PDF</button></div>
+      <div class="final-warning" id="finalConfirmation"><div class="final-warning-copy"><span aria-hidden="true">✓</span><div><strong>Prêt à extraire et figer le document ?</strong><p>Après extraction, cette version et son PDF ne seront plus modifiables. Un nouveau formulaire vide sera préparé automatiquement.</p></div></div><label class="confirm-line"><input type="checkbox" id="confirmFinal"><span><strong>J’ai relu toute l’évaluation</strong><small>Une correction ultérieure créera une nouvelle version officielle distincte.</small></span></label></div>
+      <div class="btnrow"><button class="btn light" id="saveBtn" type="submit" formnovalidate>Enregistrer le brouillon</button><button class="btn cyan" id="finalizeBtn" type="button">Extraire et figer le PDF</button></div>
     </form>
   </section>
 </main>
-<script src="app.js?v=20260815-gestion-3"></script><script src="../data-cache.js?v=20260812-global-1"></script><script src="agent-context.js?v=20260812-1"></script><script src="evaluations.js?v=20260812-terrain-2"></script><script src="evaluation-completion.js?v=20260812-2"></script><script src="evaluation-signature-identities.js?v=20260812-1"></script><script src="evaluation-external-signature.js?v=20260812-1"></script><script src="../gestion-context-v2.js?v=20260815-1"></script>
+<script src="app.js?v=20260815-gestion-3"></script><script src="../data-cache.js?v=20260812-global-1"></script><script src="agent-context.js?v=20260812-1"></script><script src="evaluations.js?v=20260812-terrain-2"></script><script src="evaluation-completion.js?v=20260825-freeze-1"></script><script src="evaluation-signature-identities.js?v=20260812-1"></script><script src="evaluation-external-signature.js?v=20260812-1"></script><script src="../gestion-context-v2.js?v=20260815-1"></script>
 </body>
 </html>
