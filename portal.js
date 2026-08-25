@@ -1,5 +1,6 @@
 const PORTAL_MODULES = [
   {key:"suivi_des_agents",title:"Suivi des agents",desc:"Créer, retrouver et poursuivre le suivi d’un agent.",href:"Nouvelle%20agent%20et%20suivi/",icon:"◎",tone:"cyan"},
+  {key:"suivi_des_agents",title:"Documents officiels",desc:"Choisir un agent, contrôler les données puis extraire un document officiel.",href:"official-documents.html",icon:"▤",tone:"violet"},
   {key:"prendre_des_notes",title:"Prendre des notes",desc:"Consigner rapidement une information terrain.",href:"https://sites.google.com/view/hfme-notes/notes-rapides",icon:"✎",tone:"ink",external:true},
   {key:"planning",title:"Planning",desc:"Planning personnel, PDF officiel et abonnement calendrier.",href:"planning.html",icon:"▦",tone:"blue"},
   {key:"esprit_d_equipe",title:"Esprit d’équipe",desc:"Vue collective, formations, stagiaires et abonnement d’équipe.",href:"esprit-equipe.html",icon:"👥",tone:"cyan"},
