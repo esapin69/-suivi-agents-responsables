@@ -1,0 +1,19 @@
+name: Temporary sync official template
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync official evaluation template to Supabase Storage
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --request POST \
+            'https://xhhjmihnxnscpktozqxs.supabase.co/functions/v1/sync-official-evaluation-template'
