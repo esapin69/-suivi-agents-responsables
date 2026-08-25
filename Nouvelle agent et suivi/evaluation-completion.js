@@ -1,8 +1,9 @@
-// Vue compacte et garde-fous après validation d'une évaluation officielle.
-// Chargé après evaluations.js : la logique métier serveur reste inchangée.
+// Cycle d’évaluation : brouillon progressif -> extraction officielle figée -> nouveau brouillon vide.
+// Chargé après evaluations.js : on conserve le moteur existant et on renforce uniquement le cycle métier.
 
 const evaluationCompletionOriginalResetForm = resetForm;
 const evaluationCompletionOriginalFillForm = fillForm;
+const evaluationCompletionOriginalValidateForm = validateForm;
 
 function evaluationCompletionShowEditor(){
   const view=el("validatedView"),form=el("evaluationForm");
@@ -21,8 +22,8 @@ function evaluationCompletionRender(ev){
   if(form)form.hidden=true;
   if(view)view.hidden=false;
 
-  el("formKicker").textContent="Document officiel créé";
-  el("formTitle").textContent="Évaluation validée";
+  el("formKicker").textContent="Document officiel figé";
+  el("formTitle").textContent="Évaluation extraite";
 
   const meta=el("validatedMeta");
   if(meta){
@@ -40,18 +41,17 @@ function evaluationCompletionRender(ev){
   }
 
   const newVersion=el("validatedNewVersionBtn");
-  if(newVersion)newVersion.onclick=()=>evaluationCompletionStartNewVersion(ev);
+  if(newVersion)newVersion.onclick=evaluationCompletionStartBlankEvaluation;
   requestAnimationFrame(()=>view?.scrollIntoView({behavior:"smooth",block:"start"}));
 }
 
-function evaluationCompletionStartNewVersion(ev){
+function evaluationCompletionStartBlankEvaluation(){
   evaluationCompletionShowEditor();
-  evaluationCompletionOriginalFillForm(ev);
-  lockForm(false);
-  cloneCurrentAsNewVersion();
+  evaluationCompletionOriginalResetForm();
   state.currentValidatedEvaluation=null;
-  el("formKicker").textContent="Nouvelle version";
+  el("formKicker").textContent="Nouvelle évaluation";
   el("formTitle").textContent="Suivi terrain";
+  setStatus(el("formStatus"),"ok","Nouveau formulaire vide prêt. Les versions officielles précédentes restent intactes.");
   showFormPanel();
   requestAnimationFrame(()=>el("formPanel")?.scrollIntoView({behavior:"smooth",block:"start"}));
 }
@@ -81,6 +81,36 @@ async function evaluationCompletionRecoverOfficial(id=evaluationCompletionCurren
   return false;
 }
 
+function evaluationCompletionDraftTarget(name){
+  const control=el("evaluationForm")?.elements?.[name];
+  if(!control)return el("evaluationForm");
+  const input=control.length&&!control.tagName?control[0]:control;
+  return validationTarget(input);
+}
+
+function evaluationCompletionMarkDraftProblem(name,label,missing){
+  const target=evaluationCompletionDraftTarget(name);
+  target?.classList?.add("validation-error");
+  missing.push({label,target});
+}
+
+// Un brouillon est volontairement progressif : il peut être enregistré depuis n’importe quelle rubrique.
+// Les contrôles complets ne sont appliqués qu’au moment de l’extraction officielle.
+validateForm=function(finalize){
+  if(finalize)return evaluationCompletionOriginalValidateForm(true);
+
+  clearValidationErrors();
+  const data=payload(),missing=[];
+  if(!String(data.date_evaluation||"").trim())evaluationCompletionMarkDraftProblem("date_evaluation","Date de l’évaluation",missing);
+  if(!String(data.evaluateur||"").trim())evaluationCompletionMarkDraftProblem("evaluateur","Responsable évaluateur",missing);
+  if(!hasMeaningfulContent(data))missing.push({label:"au moins une observation ou un critère réellement renseigné",target:el("criteria")});
+
+  if(!missing.length)return true;
+  setStatus(el("formStatus"),"err",`Impossible d’enregistrer : ${missing.map(item=>item.label).join(" · ")}.`);
+  missing[0].target?.scrollIntoView?.({behavior:"smooth",block:"center"});
+  return false;
+};
+
 resetForm=function(){
   evaluationCompletionShowEditor();
   state.currentValidatedEvaluation=null;
@@ -97,30 +127,56 @@ fillForm=function(ev){
   return evaluationCompletionOriginalFillForm(ev);
 };
 
+function evaluationCompletionResetAfterExtraction(ev){
+  const pdfUrl=String(ev?.url_document||"");
+  evaluationCompletionShowEditor();
+  evaluationCompletionOriginalResetForm();
+  state.currentValidatedEvaluation=null;
+  state.locked=false;
+
+  const form=el("evaluationForm");
+  form?.classList?.remove("external-signature-locked");
+  document.querySelector('[data-signature="agent"]')?.classList?.remove("remote-agent-signature");
+
+  el("formKicker").textContent="Nouvelle évaluation";
+  el("formTitle").textContent="Suivi terrain";
+
+  const pdf=el("pdfBtn");
+  if(pdfUrl&&pdf){
+    pdf.href=pdfUrl;
+    pdf.textContent="Ouvrir le PDF qui vient d’être extrait";
+    pdf.hidden=false;
+  }
+
+  setStatus(el("formStatus"),"ok","Évaluation extraite et figée. Le formulaire de travail a été remis à zéro pour la prochaine évaluation.");
+  showFormPanel();
+  requestAnimationFrame(()=>el("formPanel")?.scrollIntoView({behavior:"smooth",block:"start"}));
+}
+
 submit=async function(finalize){
-  // Sécurité n°1 : une version déjà officielle ne repart jamais vers finalizeEvaluation.
+  // Une version déjà officielle ne repart jamais vers finalizeEvaluation.
   if(finalize&&await evaluationCompletionRecoverOfficial())return;
   if(!validateForm(finalize))return;
 
   const button=finalize?el("finalizeBtn"):el("saveBtn"),original=button.textContent;
-  setStatus(el("formStatus"),"warn",finalize?"Création du document officiel…":"Enregistrement…");
+  setStatus(el("formStatus"),"warn",finalize?"Extraction et verrouillage du document officiel…":"Enregistrement du brouillon…");
   el("saveBtn").disabled=true;
   el("finalizeBtn").disabled=true;
-  button.textContent=finalize?"Création en cours…":"Enregistrement…";
+  button.textContent=finalize?"Extraction en cours…":"Enregistrement…";
 
   try{
     const d=await apiPost(finalize?"finalizeEvaluation":"saveEvaluationDraft",payload());
     const ev=d.evaluation;
     upsertEvaluation(ev);
-    if(finalize)evaluationCompletionRender(ev);
-    else{
+
+    if(finalize){
+      evaluationCompletionResetAfterExtraction(ev);
+    }else{
       fillForm(ev);
-      setStatus(el("formStatus"),"ok","Brouillon enregistré sans créer de doublon.");
+      setStatus(el("formStatus"),"ok","Brouillon enregistré. Vous pouvez revenir le compléter ou le modifier plus tard.");
     }
   }catch(e){
     const raw=String(e?.message||"");
-    // Sécurité n°2 : si le serveur sait déjà que la version est officielle,
-    // on récupère cette version et on bascule sur la vue de fin au lieu d'afficher une erreur bloquante.
     if(finalize&&raw.includes("EVALUATION_VALIDEE_IMMUABLE")&&await evaluationCompletionRecoverOfficial())return;
     setStatus(el("formStatus"),"err",esc(friendlyError(raw)));
   }finally{
@@ -132,7 +188,16 @@ submit=async function(finalize){
   }
 };
 
-// Sécurité n°3 : Safari/iPad peut restaurer une ancienne vue via le cache retour-arrière.
+function evaluationCompletionEnableProgressiveDrafts(){
+  const form=el("evaluationForm");
+  if(form)form.noValidate=true;
+  const save=el("saveBtn");
+  if(save)save.setAttribute("formnovalidate","");
+}
+
+document.addEventListener("DOMContentLoaded",evaluationCompletionEnableProgressiveDrafts);
+
+// Safari/iPad peut restaurer une ancienne vue via le cache retour-arrière.
 window.addEventListener("pageshow",()=>{
   requestAnimationFrame(()=>evaluationCompletionRecoverOfficial());
 });
