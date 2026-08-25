@@ -1,0 +1,32 @@
+name: Temporary repoint evaluation output
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repoint evaluation output folder
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('apps-script/EVALUATIONS.gs')
+          s = p.read_text()
+          old = "DEST_FOLDER_ID: '1DFA9HXls1eJMBZbH2N5da74tKDcrtfFj'"
+          new = "DEST_FOLDER_ID: '1b1p8colWDcD0pFHhIGG1lEmVRiKWULqn'"
+          if old not in s:
+              raise SystemExit('Ancien dossier destination introuvable')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps-script/EVALUATIONS.gs
+          git commit -m 'Range les évaluations générées dans le dossier miroir'
+          git push
