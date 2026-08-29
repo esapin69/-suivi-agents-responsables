@@ -1,0 +1,44 @@
+name: Apps Script Checks
+
+on:
+  pull_request:
+    paths:
+      - 'apps-script/**'
+      - '.github/workflows/apps-script-checks.yml'
+  push:
+    branches:
+      - codex/apps-script-clasp-sync
+    paths:
+      - 'apps-script/**'
+      - '.github/workflows/apps-script-checks.yml'
+
+jobs:
+  test-apps-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check Apps Script syntax
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const vm = require('node:vm');
+          const dir = path.join(process.cwd(), 'apps-script');
+          const files = fs.readdirSync(dir).filter(name => name.endsWith('.gs')).sort();
+          if (!files.length) throw new Error('Aucun fichier .gs trouvé');
+          for (const file of files) {
+            const source = fs.readFileSync(path.join(dir, file), 'utf8');
+            new vm.Script(source, { filename: file });
+            console.log(`OK ${file}`);
+          }
+          NODE
+
+      - name: Run Apps Script security tests
+        run: node --test apps-script/security.test.cjs
